@@ -1,0 +1,22 @@
+import dotenv from 'dotenv'
+import app from './app.js'
+import { connectDB } from './config/db.js'
+
+dotenv.config()
+
+const PORT = process.env.PORT || 5000
+
+async function start() {
+  await connectDB()
+  const server = app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`)
+  })
+
+  server.keepAliveTimeout = Number(process.env.KEEP_ALIVE_TIMEOUT_MS || 65000)
+  server.headersTimeout = Number(process.env.HEADERS_TIMEOUT_MS || 66000)
+}
+
+start().catch((error) => {
+  console.error('Failed to start server', error)
+  process.exit(1)
+})

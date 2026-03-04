@@ -1,0 +1,75 @@
+import Table from '../models/Table.js'
+import Restaurant from '../models/Restaurant.js'
+
+async function getOwnerRestaurant(ownerId) {
+  return Restaurant.findOne({ ownerId }).lean()
+}
+
+export async function createTables(req, res, next) {
+  try {
+    const restaurant = await getOwnerRestaurant(req.user._id)
+    if (!restaurant) {
+      return res.status(404).json({ message: 'Restaurant not found' })
+    }
+
+    const { count, tableNumber, active = true } = req.body
+
+    if (count) {
+      const total = Number(count)
+      if (!total || total < 1) {
+        return res.status(400).json({ message: 'count must be at least 1' })
+      }
+
+      const lastTable = await Table.findOne({ restaurantId: restaurant._id })
+        .sort({ tableNumber: -1 })
+        .select('tableNumber')
+        .lean()
+      const maxTable = lastTable?.tableNumber || 0
+
+      const docs = Array.from({ length: total }, (_, index) => ({
+        restaurantId: restaurant._id,
+        tableNumber: maxTable + index + 1,
+        active: true,
+      }))
+
+      await Table.insertMany(docs, { ordered: false })
+      const tables = await Table.find({ restaurantId: restaurant._id }).sort({ tableNumber: 1 }).lean()
+      return res.status(201).json(tables)
+    }
+
+    if (!tableNumber) {
+      return res.status(400).json({ message: 'tableNumber or count is required' })
+    }
+
+    const table = await Table.create({
+      restaurantId: restaurant._id,
+      tableNumber: Number(tableNumber),
+      active: Boolean(active),
+    })
+
+    return res.status(201).json(table)
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ message: 'Table number already exists' })
+    }
+    next(error)
+  }
+}
+
+export async function getTables(req, res, next) {
+  try {
+    const restaurant = await getOwnerRestaurant(req.user._id)
+    if (!restaurant) {
+      return res.status(404).json({ message: 'Restaurant not found' })
+    }
+
+    if (String(restaurant._id) !== req.params.restaurantId) {
+      return res.status(403).json({ message: 'Forbidden' })
+    }
+
+    const tables = await Table.find({ restaurantId: req.params.restaurantId }).sort({ tableNumber: 1 }).lean()
+    return res.json(tables)
+  } catch (error) {
+    next(error)
+  }
+}

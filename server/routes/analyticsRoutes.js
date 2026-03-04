@@ -1,0 +1,29 @@
+import { Router } from 'express'
+import { getAnalytics, getDashboard } from '../controllers/analyticsController.js'
+import { requireAuth } from '../middleware/auth.js'
+import { cacheResponse } from '../services/responseCache.js'
+
+const router = Router()
+
+router.get(
+	'/dashboard/:restaurantId',
+	requireAuth,
+	cacheResponse({
+		ttlSeconds: 20,
+		keyBuilder: (req) => `analytics:dashboard:${req.params.restaurantId}`,
+		tagsBuilder: (req) => [`analytics:${req.params.restaurantId}`],
+	}),
+	getDashboard,
+)
+router.get(
+	'/:restaurantId',
+	requireAuth,
+	cacheResponse({
+		ttlSeconds: 20,
+		keyBuilder: (req) => `analytics:detail:${req.params.restaurantId}`,
+		tagsBuilder: (req) => [`analytics:${req.params.restaurantId}`],
+	}),
+	getAnalytics,
+)
+
+export default router

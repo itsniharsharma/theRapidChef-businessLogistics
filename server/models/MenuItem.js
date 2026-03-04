@@ -1,0 +1,20 @@
+import mongoose from 'mongoose'
+
+const menuItemSchema = new mongoose.Schema(
+  {
+    restaurantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Restaurant', required: true, index: true },
+    categoryId: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true },
+    name: { type: String, required: true, trim: true },
+    description: { type: String, default: '' },
+    price: { type: Number, required: true, min: 0 },
+    image: { type: String, default: '' },
+    available: { type: Boolean, default: true },
+    bestseller: { type: Boolean, default: false },
+  },
+  { timestamps: true },
+)
+
+menuItemSchema.index({ restaurantId: 1, name: 1 })
+menuItemSchema.index({ restaurantId: 1, categoryId: 1, available: 1, createdAt: -1 })
+
+export default mongoose.model('MenuItem', menuItemSchema)

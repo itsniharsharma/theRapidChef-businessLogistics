@@ -1,0 +1,70 @@
+import { NavLink, useNavigate } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
+import { preloadRouteByPath } from '../utils/routePreload'
+
+const links = [
+  { label: 'Dashboard', to: '/dashboard' },
+  { label: 'Orders', to: '/dashboard/orders' },
+  { label: 'Menu', to: '/dashboard/menu' },
+  { label: 'Tables', to: '/dashboard/tables' },
+  { label: 'Offers', to: '/dashboard/offers' },
+  { label: 'Analytics', to: '/dashboard/analytics' },
+  { label: 'Settings', to: '/dashboard/settings' },
+]
+
+export default function Sidebar({ isOpen, onClose }) {
+  const { logout } = useAuth()
+  const navigate = useNavigate()
+
+  const onLogout = () => {
+    logout()
+    navigate('/', { replace: true })
+    onClose?.()
+  }
+
+  return (
+    <>
+      {isOpen && <button className="fixed inset-0 z-30 bg-black/30 md:hidden" onClick={onClose} />}
+      <aside
+        className={`owner-sidebar fixed left-0 top-0 z-40 h-screen w-[82vw] max-w-xs overflow-y-auto border-r border-red-100 p-4 transition-transform md:w-64 md:p-5 md:translate-x-0 ${
+          isOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+      <div className="owner-header-panel mb-6 p-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--primary)]">Revenue OS</p>
+        <p className="mt-1 text-2xl font-extrabold text-[var(--primary)]">Hunger</p>
+      </div>
+      <button className="mb-4 text-sm text-slate-600 md:hidden" onClick={onClose}>
+        Close
+      </button>
+      <nav className="space-y-1">
+        {links.map((link) => (
+          <NavLink
+            key={link.to}
+            to={link.to}
+            end={link.to === '/dashboard'}
+            onClick={onClose}
+            onMouseEnter={() => preloadRouteByPath(link.to)}
+            onFocus={() => preloadRouteByPath(link.to)}
+            className={({ isActive }) =>
+              `block rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                isActive
+                  ? 'bg-[var(--primary)] text-white shadow-sm'
+                  : 'text-slate-700 hover:bg-white hover:text-slate-900 hover:shadow-sm'
+              }`
+            }
+          >
+            {link.label}
+          </NavLink>
+        ))}
+      </nav>
+      <button
+        onClick={onLogout}
+        className="mt-6 w-full rounded-xl border border-red-100 bg-white px-3 py-2 text-left text-sm font-semibold text-slate-700 shadow-sm hover:bg-red-50"
+      >
+        Logout
+      </button>
+      </aside>
+    </>
+  )
+}
