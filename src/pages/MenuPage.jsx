@@ -4,6 +4,7 @@ import FormInput from '../components/FormInput'
 import Modal from '../components/Modal'
 import { menuService } from '../services/menuService'
 import { useAuth } from '../hooks/useAuth'
+import { formatCurrencyINR } from '../utils/currency'
 
 const initialForm = {
   name: '',
@@ -502,7 +503,7 @@ export default function MenuPage() {
           <div key={item._id} className="card p-4">
             <div className="mb-2 flex items-start justify-between">
               <h3 className="font-semibold">{item.name}</h3>
-              <p className="font-semibold text-[var(--primary)]">${item.price}</p>
+              <p className="font-semibold text-[var(--primary)]">{formatCurrencyINR(item.price)}</p>
             </div>
             <p className="text-sm text-slate-600">{item.description}</p>
             <p className="mt-2 text-sm text-slate-500">Category: {categoryMap.get(item.categoryId) || '-'}</p>

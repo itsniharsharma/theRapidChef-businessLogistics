@@ -1,6 +1,7 @@
 import Order from '../models/Order.js'
 import Restaurant from '../models/Restaurant.js'
 import Table from '../models/Table.js'
+import MenuItem from '../models/MenuItem.js'
 
 async function ensureOwnerRestaurant(ownerId, restaurantId) {
   const restaurant = await Restaurant.findOne({ ownerId }).lean()
@@ -24,6 +25,11 @@ function calcGrowth(current, previous) {
     return current > 0 ? 100 : 0
   }
   return ((current - previous) / previous) * 100
+}
+
+function safePct(part, whole) {
+  if (!whole) return 0
+  return (part / whole) * 100
 }
 
 function buildDateKeys(startDate, endDate) {
@@ -67,7 +73,7 @@ export async function getDashboard(req, res, next) {
           },
         },
       ]),
-      Order.find({ restaurantId: req.params.restaurantId })
+      Order.find({ restaurantId: ownerRestaurant._id })
         .sort({ createdAt: -1 })
         .limit(8)
         .select('_id tableNumber orderStatus totalAmount createdAt')
@@ -150,7 +156,21 @@ export async function getAnalytics(req, res, next) {
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
     const elapsedDaysInMonth = now.getDate()
 
-    const [overviewFacet, statusBreakdownRaw, paymentBreakdownRaw, revenueByDayRaw, salesByHourRaw, itemsStats, tableStats, weekdayRaw, openOrders] =
+    const [
+      overviewFacet,
+      statusBreakdownRaw,
+      paymentBreakdownRaw,
+      revenueByDayRaw,
+      salesByHourRaw,
+      itemsStats,
+      itemMomentumRaw,
+      tableStats,
+      weekdayRaw,
+      openOrders,
+      activeTables,
+      totalTables,
+      unpaidExposureRaw,
+    ] =
       await Promise.all([
         Order.aggregate([
           { $match: { restaurantId: ownerRestaurant._id } },
@@ -311,12 +331,60 @@ export async function getAnalytics(req, res, next) {
           { $unwind: '$items' },
           {
             $group: {
-              _id: '$items.name',
+              _id: {
+                itemName: '$items.name',
+                orderId: '$_id',
+              },
               qty: { $sum: '$items.quantity' },
               revenue: { $sum: { $multiply: ['$items.quantity', '$items.price'] } },
             },
           },
+          {
+            $group: {
+              _id: '$_id.itemName',
+              qty: { $sum: '$qty' },
+              revenue: { $sum: '$revenue' },
+              ordersWithItem: { $sum: 1 },
+            },
+          },
           { $sort: { qty: -1 } },
+        ]),
+        Order.aggregate([
+          { $match: { restaurantId: ownerRestaurant._id, createdAt: { $gte: startPrev7 } } },
+          { $unwind: '$items' },
+          {
+            $group: {
+              _id: '$items.name',
+              qtyLast7: {
+                $sum: {
+                  $cond: [{ $gte: ['$createdAt', startLast7] }, '$items.quantity', 0],
+                },
+              },
+              qtyPrev7: {
+                $sum: {
+                  $cond: [{ $lt: ['$createdAt', startLast7] }, '$items.quantity', 0],
+                },
+              },
+              revenueLast7: {
+                $sum: {
+                  $cond: [
+                    { $gte: ['$createdAt', startLast7] },
+                    { $multiply: ['$items.quantity', '$items.price'] },
+                    0,
+                  ],
+                },
+              },
+              revenuePrev7: {
+                $sum: {
+                  $cond: [
+                    { $lt: ['$createdAt', startLast7] },
+                    { $multiply: ['$items.quantity', '$items.price'] },
+                    0,
+                  ],
+                },
+              },
+            },
+          },
         ]),
         Order.aggregate([
           { $match: { restaurantId: ownerRestaurant._id, createdAt: { $gte: startLast30 } } },
@@ -346,7 +414,36 @@ export async function getAnalytics(req, res, next) {
           restaurantId: ownerRestaurant._id,
           orderStatus: { $in: ['Pending', 'Preparing', 'Ready'] },
         }),
+        Table.countDocuments({ restaurantId: ownerRestaurant._id, active: true }),
+        Table.countDocuments({ restaurantId: ownerRestaurant._id }),
+        Order.aggregate([
+          {
+            $match: {
+              restaurantId: ownerRestaurant._id,
+              paymentStatus: 'Unpaid',
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              unpaidRevenue: { $sum: '$totalAmount' },
+              unpaidOrders: { $sum: 1 },
+              unpaidOlderThan2h: {
+                $sum: {
+                  $cond: [{ $lte: ['$createdAt', new Date(now.getTime() - 2 * 60 * 60 * 1000)] }, 1, 0],
+                },
+              },
+            },
+          },
+        ]),
       ])
+
+    const topItemNames = itemsStats.slice(0, 12).map((item) => item._id)
+    const menuItems = topItemNames.length
+      ? await MenuItem.find({ restaurantId: ownerRestaurant._id, name: { $in: topItemNames } })
+          .select('name bestseller available')
+          .lean()
+      : []
 
     const overview = overviewFacet[0] || {}
     const today = safePeriod(overview.today?.[0])
@@ -406,12 +503,83 @@ export async function getAnalytics(req, res, next) {
     })
 
     const totalItemQty = itemsStats.reduce((sum, item) => sum + (item.qty || 0), 0)
+    const itemMomentumMap = new Map(
+      itemMomentumRaw.map((item) => [
+        item._id,
+        {
+          qtyLast7: item.qtyLast7 || 0,
+          qtyPrev7: item.qtyPrev7 || 0,
+          revenueLast7: item.revenueLast7 || 0,
+          revenuePrev7: item.revenuePrev7 || 0,
+        },
+      ]),
+    )
+    const menuItemMap = new Map(
+      menuItems.map((item) => [item.name, { bestseller: Boolean(item.bestseller), available: Boolean(item.available) }]),
+    )
+
     const topItems = itemsStats.slice(0, 8).map((item) => ({
       name: item._id,
       qty: item.qty || 0,
       revenue: item.revenue || 0,
+      ordersWithItem: item.ordersWithItem || 0,
+      attachRatePct: safePct(item.ordersWithItem || 0, last30.orders),
       mixPct: totalItemQty ? ((item.qty || 0) / totalItemQty) * 100 : 0,
     }))
+
+    const itemInsights = itemsStats.slice(0, 12).map((item) => {
+      const momentum = itemMomentumMap.get(item._id) || {
+        qtyLast7: 0,
+        qtyPrev7: 0,
+        revenueLast7: 0,
+        revenuePrev7: 0,
+      }
+      const menuMeta = menuItemMap.get(item._id) || { bestseller: false, available: false }
+      const momentumQtyPct = calcGrowth(momentum.qtyLast7, momentum.qtyPrev7)
+      const revenueSharePct = safePct(item.revenue || 0, last30.revenue)
+      const attachRatePct = safePct(item.ordersWithItem || 0, last30.orders)
+      const bestsellerScore =
+        revenueSharePct * 0.45 +
+        attachRatePct * 0.3 +
+        (momentumQtyPct > 0 ? Math.min(momentumQtyPct, 100) : 0) * 0.25
+
+      return {
+        name: item._id,
+        qty30d: item.qty || 0,
+        revenue30d: item.revenue || 0,
+        ordersWithItem30d: item.ordersWithItem || 0,
+        revenueSharePct,
+        attachRatePct,
+        qtyLast7: momentum.qtyLast7,
+        qtyPrev7: momentum.qtyPrev7,
+        momentumQtyPct,
+        bestsellerScore,
+        isMarkedBestseller: menuMeta.bestseller,
+        isAvailable: menuMeta.available,
+      }
+    })
+
+    const bestsellerRecommendations = itemInsights
+      .filter((item) => item.isAvailable)
+      .sort((a, b) => b.bestsellerScore - a.bestsellerScore)
+      .slice(0, 5)
+      .map((item, index) => {
+        const shouldMark = !item.isMarkedBestseller && item.revenueSharePct >= 8 && item.momentumQtyPct > -10
+        const recommendation = shouldMark ? 'Mark as Bestseller' : 'Keep as Featured Bestseller'
+
+        return {
+          rank: index + 1,
+          name: item.name,
+          recommendation,
+          reason: `${item.revenueSharePct.toFixed(1)}% revenue share, ${item.attachRatePct.toFixed(1)}% attach rate, ${item.momentumQtyPct.toFixed(1)}% 7-day momentum.`,
+          confidence: item.bestsellerScore >= 35 ? 'high' : item.bestsellerScore >= 20 ? 'medium' : 'low',
+          metrics: {
+            revenueSharePct: item.revenueSharePct,
+            attachRatePct: item.attachRatePct,
+            momentumQtyPct: item.momentumQtyPct,
+          },
+        }
+      })
 
     const leastSellingItems = [...itemsStats]
       .filter((item) => (item.qty || 0) > 0)
@@ -444,6 +612,110 @@ export async function getAnalytics(req, res, next) {
     const completionRateMonth = month.orders ? (completedLike / month.orders) * 100 : 0
     const paymentCaptureRateMonth = month.orders ? (month.paidOrders / month.orders) * 100 : 0
 
+    const growth = {
+      todayVsYesterdayRevenue: calcGrowth(today.revenue, yesterday.revenue),
+      last7VsPrev7Revenue: calcGrowth(last7.revenue, prev7.revenue),
+      last30VsPrev30Revenue: calcGrowth(last30.revenue, prev30.revenue),
+      todayVsYesterdayOrders: calcGrowth(today.orders, yesterday.orders),
+    }
+
+    const unpaidExposure = {
+      unpaidRevenue: unpaidExposureRaw?.[0]?.unpaidRevenue || 0,
+      unpaidOrders: unpaidExposureRaw?.[0]?.unpaidOrders || 0,
+      unpaidOlderThan2h: unpaidExposureRaw?.[0]?.unpaidOlderThan2h || 0,
+    }
+
+    const revenueByPayment = new Map(paymentBreakdownRaw.map((entry) => [entry._id, entry.revenue || 0]))
+    const paidRevenueMonth = revenueByPayment.get('Paid') || 0
+    const unpaidRevenueMonth = revenueByPayment.get('Unpaid') || 0
+
+    const top5Revenue = topItems.slice(0, 5).reduce((sum, item) => sum + (item.revenue || 0), 0)
+    const topItemRevenue = topItems[0]?.revenue || 0
+    const tablesWithOrders = tableStats.length
+    const repeatTables = tableStats.filter((table) => (table.orders || 0) >= 2).length
+    const peakHoursRevenue = peakHours.reduce((sum, hour) => sum + (hour.sales || 0), 0)
+    const weekdayRevenueMap = new Map(weekdayPerformance.map((entry) => [entry.day, entry.revenue || 0]))
+    const weekendRevenue =
+      (weekdayRevenueMap.get('Fri') || 0) + (weekdayRevenueMap.get('Sat') || 0) + (weekdayRevenueMap.get('Sun') || 0)
+
+    const controlMetrics = {
+      activeTableCount: activeTables || 0,
+      totalTableCount: totalTables || 0,
+      tablesWithOrders,
+      tableUtilizationPct: safePct(tablesWithOrders, activeTables || 0),
+      repeatTableRatePct: safePct(repeatTables, tablesWithOrders),
+      ordersPerActiveTable30d: activeTables ? last30.orders / activeTables : 0,
+      revenueConcentrationTop5Pct: safePct(top5Revenue, last30.revenue),
+      topItemDependencyPct: safePct(topItemRevenue, last30.revenue),
+      peakHoursRevenueSharePct: safePct(peakHoursRevenue, last30.revenue),
+      weekendRevenueSharePct: safePct(weekendRevenue, last30.revenue),
+      paidRevenueMonth,
+      unpaidRevenueMonth,
+      unpaidExposure,
+    }
+
+    const recommendations = []
+
+    if (controlMetrics.tableUtilizationPct < 55) {
+      recommendations.push({
+        id: 'table-utilization-low',
+        priority: 'high',
+        title: 'Improve table utilization during low-demand windows',
+        why: `Only ${controlMetrics.tableUtilizationPct.toFixed(1)}% of active tables generated orders in the last 30 days.`,
+        action: 'Launch daypart-specific offers and upsell prompts for off-peak slots to activate idle tables.',
+      })
+    }
+
+    if (controlMetrics.unpaidExposure.unpaidOlderThan2h > 0) {
+      recommendations.push({
+        id: 'unpaid-exposure',
+        priority: 'high',
+        title: 'Unpaid order exposure requires tighter close-out discipline',
+        why: `${controlMetrics.unpaidExposure.unpaidOlderThan2h} unpaid orders are older than 2 hours.`,
+        action: 'Enable payment-at-ready workflow and cashier reminders before marking orders as served.',
+      })
+    }
+
+    if (controlMetrics.revenueConcentrationTop5Pct > 65) {
+      recommendations.push({
+        id: 'menu-concentration-risk',
+        priority: 'medium',
+        title: 'Revenue concentration risk is high',
+        why: `Top 5 items contribute ${controlMetrics.revenueConcentrationTop5Pct.toFixed(1)}% of revenue.`,
+        action: 'Promote high-margin secondary items via combos and menu placement to diversify revenue.',
+      })
+    }
+
+    if (growth.last7VsPrev7Revenue < -8) {
+      recommendations.push({
+        id: 'momentum-drop',
+        priority: 'high',
+        title: 'Revenue momentum dropped vs previous week',
+        why: `Last 7 days revenue is ${growth.last7VsPrev7Revenue.toFixed(1)}% vs previous 7 days.`,
+        action: 'Run a 7-day recovery plan: peak-hour staffing alignment + high-conversion offer on weak dayparts.',
+      })
+    }
+
+    if (controlMetrics.repeatTableRatePct < 35) {
+      recommendations.push({
+        id: 'repeat-engagement-low',
+        priority: 'medium',
+        title: 'Repeat table engagement can be improved',
+        why: `Only ${controlMetrics.repeatTableRatePct.toFixed(1)}% of ordering tables placed 2+ orders in 30 days.`,
+        action: 'Introduce post-meal dessert or beverage prompts at checkout to raise repeat ordering behavior.',
+      })
+    }
+
+    if (!recommendations.length) {
+      recommendations.push({
+        id: 'healthy-trajectory',
+        priority: 'info',
+        title: 'Business trajectory looks healthy',
+        why: 'Core metrics are stable with no major risk spikes detected.',
+        action: 'Focus on incremental menu margin optimization and maintain current execution cadence.',
+      })
+    }
+
     return res.json({
       todayRevenue: today.revenue,
       weekRevenue: last7.revenue,
@@ -464,18 +736,17 @@ export async function getAnalytics(req, res, next) {
         openOrders,
         completionRateMonth,
         paymentCaptureRateMonth,
-        growth: {
-          todayVsYesterdayRevenue: calcGrowth(today.revenue, yesterday.revenue),
-          last7VsPrev7Revenue: calcGrowth(last7.revenue, prev7.revenue),
-          last30VsPrev30Revenue: calcGrowth(last30.revenue, prev30.revenue),
-          todayVsYesterdayOrders: calcGrowth(today.orders, yesterday.orders),
-        },
+        growth,
       },
       projections: {
         monthRevenueProjection,
         forecastNext7Revenue,
         avgDailyRevenueLast7,
       },
+      controlMetrics,
+      recommendations,
+      itemInsights,
+      bestsellerRecommendations,
       statusBreakdown: statusBreakdownRaw.map((entry) => ({
         status: entry._id,
         orders: entry.orders,

@@ -4,6 +4,7 @@ import Button from '../components/Button'
 import CustomerBottomNav from '../components/CustomerBottomNav'
 import { useCustomerCart } from '../hooks/useCustomerCart'
 import { orderService } from '../services/orderService'
+import { formatCurrencyINR } from '../utils/currency'
 
 export default function CustomerCheckoutPage() {
   const navigate = useNavigate()
@@ -77,9 +78,9 @@ export default function CustomerCheckoutPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-slate-900">{item.name}</p>
-                    <p className="text-sm text-slate-500">${Number(item.price).toFixed(2)} each</p>
+                    <p className="text-sm text-slate-500">{formatCurrencyINR(item.price)} each</p>
                   </div>
-                  <p className="font-semibold text-[var(--primary)]">${(item.price * item.quantity).toFixed(2)}</p>
+                  <p className="font-semibold text-[var(--primary)]">{formatCurrencyINR(item.price * item.quantity)}</p>
                 </div>
                 <div className="mt-2 flex items-center gap-2">
                   <button
@@ -103,7 +104,7 @@ export default function CustomerCheckoutPage() {
 
         <div className="customer-glass mt-4 rounded-xl border border-red-100 bg-red-50/70 p-3">
           <p className="text-sm text-slate-600">Total</p>
-          <p className="text-xl font-bold text-[var(--primary)]">${total.toFixed(2)}</p>
+          <p className="text-xl font-bold text-[var(--primary)]">{formatCurrencyINR(total)}</p>
           <p className="mt-1 text-xs text-slate-500">Includes all selected items for table {tableNumber}</p>
         </div>
 

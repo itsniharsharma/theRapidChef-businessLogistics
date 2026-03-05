@@ -9,7 +9,7 @@ router.get(
 	'/dashboard/:restaurantId',
 	requireAuth,
 	cacheResponse({
-		ttlSeconds: 20,
+		ttlSeconds: 60,
 		keyBuilder: (req) => `analytics:dashboard:${req.user._id}:${req.params.restaurantId}`,
 		tagsBuilder: (req) => [`analytics:${req.params.restaurantId}`],
 	}),
@@ -19,7 +19,7 @@ router.get(
 	'/:restaurantId',
 	requireAuth,
 	cacheResponse({
-		ttlSeconds: 20,
+		ttlSeconds: 60,
 		keyBuilder: (req) => `analytics:detail:${req.user._id}:${req.params.restaurantId}`,
 		tagsBuilder: (req) => [`analytics:${req.params.restaurantId}`],
 	}),

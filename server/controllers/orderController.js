@@ -58,13 +58,15 @@ export async function updateOrderStatus(req, res, next) {
       return res.status(400).json({ message: 'Invalid order status' })
     }
 
-    const order = await Order.findOne({ _id: req.params.orderId, restaurantId: restaurant._id })
+    const order = await Order.findOneAndUpdate(
+      { _id: req.params.orderId, restaurantId: restaurant._id },
+      { $set: { orderStatus } },
+      { new: true, runValidators: true },
+    )
     if (!order) {
       return res.status(404).json({ message: 'Order not found' })
     }
 
-    order.orderStatus = orderStatus
-    await order.save()
     invalidateCacheByTags([`analytics:${String(restaurant._id)}`])
     return res.json(order)
   } catch (error) {

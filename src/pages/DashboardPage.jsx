@@ -10,6 +10,7 @@ import {
 import Card from '../components/Card'
 import { analyticsService } from '../services/analyticsService'
 import { useAuth } from '../hooks/useAuth'
+import { formatCurrencyINR } from '../utils/currency'
 
 export default function DashboardPage() {
   const { restaurant } = useAuth()
@@ -24,17 +25,17 @@ export default function DashboardPage() {
   const cards = useMemo(() => {
     if (!data?.cards) {
       return [
-        { title: "Today's Revenue", value: '$0.00' },
+        { title: "Today's Revenue", value: formatCurrencyINR(0) },
         { title: 'Total Orders Today', value: '0' },
-        { title: 'Average Order Value', value: '$0.00' },
+        { title: 'Average Order Value', value: formatCurrencyINR(0) },
         { title: 'Active Tables', value: '0' },
       ]
     }
 
     return [
-      { title: "Today's Revenue", value: `$${Number(data.cards.todayRevenue || 0).toFixed(2)}` },
+      { title: "Today's Revenue", value: formatCurrencyINR(data.cards.todayRevenue) },
       { title: 'Total Orders Today', value: String(data.cards.totalOrdersToday || 0) },
-      { title: 'Average Order Value', value: `$${Number(data.cards.averageOrderValue || 0).toFixed(2)}` },
+      { title: 'Average Order Value', value: formatCurrencyINR(data.cards.averageOrderValue) },
       { title: 'Active Tables', value: String(data.cards.activeTables || 0) },
     ]
   }, [data])
@@ -60,7 +61,7 @@ export default function DashboardPage() {
                 <p className="mt-1 text-slate-600">
                   Table {order.tableNumber} • {order.orderStatus}
                 </p>
-                <p className="font-semibold text-[var(--primary)]">${Number(order.totalAmount || 0).toFixed(2)}</p>
+                <p className="font-semibold text-[var(--primary)]">{formatCurrencyINR(order.totalAmount)}</p>
               </div>
             ))}
           </div>

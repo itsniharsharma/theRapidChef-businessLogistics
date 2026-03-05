@@ -5,8 +5,17 @@ import User from '../models/User.js'
 import Restaurant from '../models/Restaurant.js'
 import { uniqueSlug } from '../utils/slugify.js'
 
-function signToken(userId) {
-  return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '7d' })
+function signToken(user) {
+  return jwt.sign(
+    {
+      userId: String(user._id || user.id),
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: '7d' },
+  )
 }
 
 async function getOwnerRestaurant(ownerId) {
@@ -38,7 +47,7 @@ export async function register(req, res, next) {
       ownerId: user._id,
     })
 
-    const token = signToken(user._id)
+    const token = signToken(user)
     return res.status(201).json({
       token,
       user: { id: user._id, name: user.name, email: user.email, role: user.role },
@@ -68,7 +77,7 @@ export async function login(req, res, next) {
     }
 
     const restaurant = await getOwnerRestaurant(user._id)
-    const token = signToken(user._id)
+    const token = signToken(user)
     return res.json({
       token,
       user: { id: user._id, name: user.name, email: user.email, role: user.role },

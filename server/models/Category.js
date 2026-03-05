@@ -10,5 +10,6 @@ const categorySchema = new mongoose.Schema(
 )
 
 categorySchema.index({ restaurantId: 1, name: 1 }, { unique: true })
+categorySchema.index({ restaurantId: 1, orderIndex: 1, name: 1 })
 
 export default mongoose.model('Category', categorySchema)

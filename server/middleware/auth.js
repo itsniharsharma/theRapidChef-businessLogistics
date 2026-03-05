@@ -11,8 +11,20 @@ export async function requireAuth(req, res, next) {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
-    const user = await User.findById(decoded.userId).lean()
 
+    // Fast path: tokens now carry user context, avoiding a DB read on every request.
+    if (decoded?.userId && decoded?.name && decoded?.email && decoded?.role) {
+      req.user = {
+        _id: decoded.userId,
+        name: decoded.name,
+        email: decoded.email,
+        role: decoded.role,
+      }
+      return next()
+    }
+
+    // Backward compatibility for older tokens that only have userId.
+    const user = await User.findById(decoded.userId).lean()
     if (!user) {
       return res.status(401).json({ message: 'Invalid token' })
     }

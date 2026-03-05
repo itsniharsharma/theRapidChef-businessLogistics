@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import Button from '../components/Button'
 import CustomerBottomNav from '../components/CustomerBottomNav'
 import { orderService } from '../services/orderService'
+import { formatCurrencyINR } from '../utils/currency'
 
 const steps = ['Pending', 'Preparing', 'Ready', 'Served', 'Completed']
 
@@ -66,7 +67,7 @@ export default function CustomerOrderTrackingPage() {
             <p className="text-sm text-slate-600">Current Status</p>
             <p className="text-lg font-semibold text-[var(--primary)]">{order.orderStatus}</p>
             <p className="mt-1 text-sm text-slate-600">Payment: {order.paymentStatus}</p>
-            <p className="mt-1 text-sm font-semibold text-slate-800">Total: ${Number(order.totalAmount).toFixed(2)}</p>
+            <p className="mt-1 text-sm font-semibold text-slate-800">Total: {formatCurrencyINR(order.totalAmount)}</p>
           </div>
         )}
       </div>

@@ -108,19 +108,23 @@ export async function updateMenuItem(req, res, next) {
       return res.status(404).json({ message: 'Restaurant not found' })
     }
 
-    const item = await MenuItem.findOne({ _id: req.params.id, restaurantId: restaurant._id })
+    const updates = ['categoryId', 'name', 'description', 'price', 'image', 'available', 'bestseller']
+    const patch = {}
+    updates.forEach((field) => {
+      if (field in req.body) {
+        patch[field] = req.body[field]
+      }
+    })
+
+    const item = await MenuItem.findOneAndUpdate(
+      { _id: req.params.id, restaurantId: restaurant._id },
+      { $set: patch },
+      { new: true, runValidators: true },
+    )
     if (!item) {
       return res.status(404).json({ message: 'Menu item not found' })
     }
 
-    const updates = ['categoryId', 'name', 'description', 'price', 'image', 'available', 'bestseller']
-    updates.forEach((field) => {
-      if (field in req.body) {
-        item[field] = req.body[field]
-      }
-    })
-
-    await item.save()
     invalidateCacheByTags([`menu:${restaurant.slug}`])
     return res.json(item)
   } catch (error) {

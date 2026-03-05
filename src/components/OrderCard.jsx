@@ -1,5 +1,6 @@
 import { memo } from 'react'
 import Button from './Button'
+import { formatCurrencyINR } from '../utils/currency'
 
 const statuses = ['Pending', 'Preparing', 'Ready', 'Served', 'Completed']
 
@@ -28,7 +29,7 @@ function OrderCard({ order, onStatusChange, onDelete }) {
       </div>
       <p className="text-sm text-slate-600">Table: {order.tableNumber}</p>
       <p className="mt-2 text-sm text-slate-600">Items: {itemText}</p>
-      <p className="mt-2 font-semibold text-[var(--primary)]">${Number(total).toFixed(2)}</p>
+      <p className="mt-2 font-semibold text-[var(--primary)]">{formatCurrencyINR(total)}</p>
       <div className="mt-2 flex gap-4 text-sm text-slate-600">
         <span>Payment: {order.paymentStatus}</span>
         <span>Status: {label}</span>

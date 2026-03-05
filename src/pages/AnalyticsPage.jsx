@@ -5,10 +5,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
   Legend,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -17,11 +14,10 @@ import {
 import Card from '../components/Card'
 import { analyticsService } from '../services/analyticsService'
 import { useAuth } from '../hooks/useAuth'
-
-const PIE_COLORS = ['#E50914', '#f87171', '#fca5a5', '#fecaca', '#ffe4e6', '#ef4444']
+import { formatCurrencyINR } from '../utils/currency'
 
 function formatCurrency(value) {
-  return `$${Number(value || 0).toFixed(2)}`
+  return formatCurrencyINR(value)
 }
 
 function formatPct(value) {
@@ -32,6 +28,10 @@ function formatGrowth(value) {
   const numeric = Number(value || 0)
   const sign = numeric > 0 ? '+' : ''
   return `${sign}${numeric.toFixed(1)}%`
+}
+
+function formatNumber(value, digits = 1) {
+  return Number(value || 0).toFixed(digits)
 }
 
 function growthClass(value) {
@@ -62,6 +62,9 @@ export default function AnalyticsPage() {
 
   const summary = analytics?.summary || {}
   const growth = summary.growth || {}
+  const control = analytics?.controlMetrics || {}
+  const recommendations = analytics?.recommendations || []
+  const bestsellerRecommendations = analytics?.bestsellerRecommendations || []
 
   return (
     <div className="space-y-5">
@@ -92,6 +95,114 @@ export default function AnalyticsPage() {
         <Card title="Projected Month Revenue" value={formatCurrency(analytics?.projections?.monthRevenueProjection)} />
         <Card title="Open Orders" value={String(summary.openOrders || 0)} />
         <Card title="Payment Capture Rate" value={formatPct(summary.paymentCaptureRateMonth)} />
+      </div>
+
+      <div className="card p-4">
+        <h2 className="mb-4 text-lg font-semibold">Business Control Panel</h2>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-lg border border-slate-200 p-3 text-sm">
+            <p className="text-xs uppercase tracking-wider text-slate-500">Table Utilization</p>
+            <p className="mt-1 text-xl font-bold text-slate-900">{formatPct(control.tableUtilizationPct)}</p>
+            <p className="text-xs text-slate-500">{control.tablesWithOrders || 0} / {control.activeTableCount || 0} active tables ordered</p>
+          </div>
+          <div className="rounded-lg border border-slate-200 p-3 text-sm">
+            <p className="text-xs uppercase tracking-wider text-slate-500">Orders / Active Table (30d)</p>
+            <p className="mt-1 text-xl font-bold text-slate-900">{formatNumber(control.ordersPerActiveTable30d)}</p>
+            <p className="text-xs text-slate-500">Throughput intensity per active table</p>
+          </div>
+          <div className="rounded-lg border border-slate-200 p-3 text-sm">
+            <p className="text-xs uppercase tracking-wider text-slate-500">Top 5 Revenue Concentration</p>
+            <p className="mt-1 text-xl font-bold text-slate-900">{formatPct(control.revenueConcentrationTop5Pct)}</p>
+            <p className="text-xs text-slate-500">Risk of overdependence on few items</p>
+          </div>
+          <div className="rounded-lg border border-slate-200 p-3 text-sm">
+            <p className="text-xs uppercase tracking-wider text-slate-500">Top Item Dependency</p>
+            <p className="mt-1 text-xl font-bold text-slate-900">{formatPct(control.topItemDependencyPct)}</p>
+            <p className="text-xs text-slate-500">Share contributed by #1 item</p>
+          </div>
+          <div className="rounded-lg border border-slate-200 p-3 text-sm">
+            <p className="text-xs uppercase tracking-wider text-slate-500">Peak-Hour Revenue Share</p>
+            <p className="mt-1 text-xl font-bold text-slate-900">{formatPct(control.peakHoursRevenueSharePct)}</p>
+            <p className="text-xs text-slate-500">Revenue concentrated in top 3 hours</p>
+          </div>
+          <div className="rounded-lg border border-slate-200 p-3 text-sm">
+            <p className="text-xs uppercase tracking-wider text-slate-500">Weekend Revenue Share</p>
+            <p className="mt-1 text-xl font-bold text-slate-900">{formatPct(control.weekendRevenueSharePct)}</p>
+            <p className="text-xs text-slate-500">Fri-Sun contribution in last 30 days</p>
+          </div>
+          <div className="rounded-lg border border-red-100 bg-red-50/60 p-3 text-sm">
+            <p className="text-xs uppercase tracking-wider text-slate-500">Unpaid Exposure</p>
+            <p className="mt-1 text-xl font-bold text-[var(--primary)]">{formatCurrency(control.unpaidExposure?.unpaidRevenue)}</p>
+            <p className="text-xs text-slate-500">{control.unpaidExposure?.unpaidOlderThan2h || 0} orders older than 2h</p>
+          </div>
+          <div className="rounded-lg border border-slate-200 p-3 text-sm">
+            <p className="text-xs uppercase tracking-wider text-slate-500">Repeat Table Rate</p>
+            <p className="mt-1 text-xl font-bold text-slate-900">{formatPct(control.repeatTableRatePct)}</p>
+            <p className="text-xs text-slate-500">Tables placing 2+ orders in 30 days</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="card p-4">
+        <h2 className="mb-3 text-lg font-semibold">Owner Action Feed</h2>
+        <div className="space-y-3">
+          {recommendations.map((item) => (
+            <div key={item.id} className="rounded-lg border border-slate-200 p-3 text-sm">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <p className="font-semibold text-slate-900">{item.title}</p>
+                <span
+                  className={`rounded px-2 py-1 text-xs font-semibold uppercase ${
+                    item.priority === 'high'
+                      ? 'bg-red-100 text-[var(--primary)]'
+                      : item.priority === 'medium'
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  {item.priority}
+                </span>
+              </div>
+              <p className="text-slate-600">{item.why}</p>
+              <p className="mt-1 font-medium text-slate-800">Action: {item.action}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card p-4">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold">Item-Wise Bestseller Recommendations</h2>
+          <p className="text-xs text-slate-500">Based on revenue share, attach rate, and 7-day momentum</p>
+        </div>
+        <div className="space-y-2">
+          {bestsellerRecommendations.map((item) => (
+            <div key={item.name} className="rounded-lg border border-slate-200 p-3 text-sm">
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-semibold text-slate-900">
+                  #{item.rank} {item.name}
+                </p>
+                <span
+                  className={`rounded px-2 py-1 text-xs font-semibold uppercase ${
+                    item.confidence === 'high'
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : item.confidence === 'medium'
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  {item.confidence} confidence
+                </span>
+              </div>
+              <p className="mt-1 text-slate-700">{item.recommendation}</p>
+              <p className="text-xs text-slate-500">{item.reason}</p>
+            </div>
+          ))}
+          {!bestsellerRecommendations.length && (
+            <p className="rounded-lg border border-slate-200 p-3 text-sm text-slate-500">
+              Not enough item data yet to generate bestseller recommendations.
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
@@ -167,54 +278,6 @@ export default function AnalyticsPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-        <div className="card h-72 p-4 md:h-80">
-          <h2 className="mb-3 text-lg font-semibold">Order Status Mix (Month)</h2>
-          <ResponsiveContainer width="100%" height="90%">
-            <PieChart>
-              <Pie
-                data={analytics?.statusBreakdown || []}
-                dataKey="orders"
-                nameKey="status"
-                cx="50%"
-                cy="50%"
-                outerRadius={78}
-                label
-              >
-                {(analytics?.statusBreakdown || []).map((entry, index) => (
-                  <Cell key={entry.status} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="card h-72 p-4 md:h-80">
-          <h2 className="mb-3 text-lg font-semibold">Payment Mix (Month)</h2>
-          <ResponsiveContainer width="100%" height="90%">
-            <PieChart>
-              <Pie
-                data={analytics?.paymentBreakdown || []}
-                dataKey="orders"
-                nameKey="status"
-                cx="50%"
-                cy="50%"
-                outerRadius={78}
-                label
-              >
-                {(analytics?.paymentBreakdown || []).map((entry, index) => (
-                  <Cell key={entry.status} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <div className="card p-4">
           <h2 className="mb-3 text-lg font-semibold">Top Selling Items (Last 30 Days)</h2>
           <div className="space-y-2">
@@ -227,6 +290,10 @@ export default function AnalyticsPage() {
                 <div className="mt-1 flex items-center justify-between text-slate-600">
                   <span>Revenue: {formatCurrency(item.revenue)}</span>
                   <span>Mix: {formatPct(item.mixPct)}</span>
+                </div>
+                <div className="mt-1 flex items-center justify-between text-xs text-slate-500">
+                  <span>Attach rate: {formatPct(item.attachRatePct)}</span>
+                  <span>Orders: {item.ordersWithItem || 0}</span>
                 </div>
               </div>
             ))}

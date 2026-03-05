@@ -4,6 +4,7 @@ import Button from '../components/Button'
 import CustomerBottomNav from '../components/CustomerBottomNav'
 import { menuService } from '../services/menuService'
 import { useCustomerCart } from '../hooks/useCustomerCart'
+import { formatCurrencyINR } from '../utils/currency'
 
 export default function CustomerMenuPage() {
   const navigate = useNavigate()
@@ -128,7 +129,7 @@ export default function CustomerMenuPage() {
                         </div>
                       </div>
                       <p className="dish-badge rounded-full px-3 py-1 text-sm font-bold">
-                        ${Number(item.price).toFixed(2)}
+                        {formatCurrencyINR(item.price)}
                       </p>
                     </div>
                     <div className="mt-3 flex items-center justify-between">
@@ -162,7 +163,7 @@ export default function CustomerMenuPage() {
       {cart.length > 0 && (
         <div className="customer-floating-cta fixed bottom-20 left-0 right-0 z-30 p-4">
           <Button className="w-full" onClick={openCheckout}>
-            View Cart • ${total.toFixed(2)}
+            View Cart • {formatCurrencyINR(total)}
           </Button>
         </div>
       )}

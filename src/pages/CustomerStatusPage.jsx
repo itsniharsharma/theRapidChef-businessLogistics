@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import Button from '../components/Button'
 import CustomerBottomNav from '../components/CustomerBottomNav'
 import { orderService } from '../services/orderService'
+import { formatCurrencyINR } from '../utils/currency'
 
 const statusTone = {
   Pending: 'border-amber-200 bg-amber-50 text-amber-700',
@@ -91,7 +92,7 @@ export default function CustomerStatusPage() {
               </div>
 
               <div className="mt-3 flex items-center justify-between">
-                <p className="text-sm font-semibold text-slate-900">Total: ${Number(order.totalAmount).toFixed(2)}</p>
+                <p className="text-sm font-semibold text-slate-900">Total: {formatCurrencyINR(order.totalAmount)}</p>
                 <Button
                   variant="secondary"
                   onClick={() => navigate(`/r/${restaurantSlug}/t/${tableNumber}/order/${order._id}`)}

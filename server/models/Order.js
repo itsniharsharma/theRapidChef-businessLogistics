@@ -29,5 +29,7 @@ const orderSchema = new mongoose.Schema(
 orderSchema.index({ restaurantId: 1, createdAt: -1 })
 orderSchema.index({ restaurantId: 1, orderStatus: 1, createdAt: -1 })
 orderSchema.index({ restaurantId: 1, tableNumber: 1, createdAt: -1 })
+orderSchema.index({ restaurantId: 1, paymentStatus: 1, createdAt: -1 })
+orderSchema.index({ restaurantId: 1, paymentStatus: 1, orderStatus: 1, createdAt: -1 })
 
 export default mongoose.model('Order', orderSchema)
