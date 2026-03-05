@@ -29,6 +29,9 @@ GEMINI_API_KEY=<your-gemini-api-key>
 GEMINI_MODEL=gemini-1.5-flash
 OPENAI_API_KEY=<your-openai-api-key>
 OPENAI_MODEL=gpt-4o-mini
+RAZORPAY_KEY_ID=<your-razorpay-key-id>
+RAZORPAY_KEY_SECRET=<your-razorpay-key-secret>
+RAZORPAY_HYBRID_MONTHLY_PLAN_ID=<your-razorpay-plan-id-for-rs-250>
 KEEP_ALIVE_TIMEOUT_MS=65000
 HEADERS_TIMEOUT_MS=66000
 
@@ -81,9 +84,10 @@ Owner flow:
 
 1. Register account
 2. Auto-create restaurant
-3. Add categories and menu items
-4. Add tables and generate QR
-5. View incoming orders in dashboard
+3. Choose pricing: lifetime one-time or hybrid (setup + monthly autopay)
+4. Add categories and menu items
+5. Add tables and generate QR
+6. View incoming orders in dashboard
 
 Customer flow:
 

@@ -1,0 +1,205 @@
+import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import Button from '../components/Button'
+import { useAuth } from '../hooks/useAuth'
+import { paymentService } from '../services/paymentService'
+
+const features = [
+  'Complete owner dashboard (menu, orders, tables, analytics)',
+  'QR-based customer ordering and checkout flow',
+  'AI-powered menu parsing and import support',
+  'Offers, billing, and real-time order tracking',
+  'Multi-tenant data separation and JWT auth',
+]
+
+function loadRazorpayCheckoutScript() {
+  return new Promise((resolve, reject) => {
+    if (window.Razorpay) {
+      resolve(window.Razorpay)
+      return
+    }
+
+    const existing = document.querySelector('script[data-razorpay-checkout="true"]')
+    if (existing) {
+      existing.addEventListener('load', () => resolve(window.Razorpay), { once: true })
+      existing.addEventListener('error', () => reject(new Error('Failed to load Razorpay SDK')), { once: true })
+      return
+    }
+
+    const script = document.createElement('script')
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+    script.async = true
+    script.dataset.razorpayCheckout = 'true'
+    script.onload = () => resolve(window.Razorpay)
+    script.onerror = () => reject(new Error('Failed to load Razorpay SDK'))
+    document.body.appendChild(script)
+  })
+}
+
+function openRazorpay(options) {
+  return new Promise((resolve, reject) => {
+    const checkout = new window.Razorpay({
+      ...options,
+      modal: {
+        ondismiss: () => reject(new Error('Checkout cancelled')),
+      },
+      handler: (response) => resolve(response),
+    })
+
+    checkout.on('payment.failed', (event) => {
+      const reason = event?.error?.description || 'Payment failed'
+      reject(new Error(reason))
+    })
+
+    checkout.open()
+  })
+}
+
+export default function PricingPage() {
+  const navigate = useNavigate()
+  const { user, restaurant } = useAuth()
+  const [activePlan, setActivePlan] = useState('')
+  const [error, setError] = useState('')
+
+  const prefill = useMemo(
+    () => ({
+      name: user?.name || '',
+      email: user?.email || '',
+      contact: restaurant?.phone || '',
+    }),
+    [user?.email, user?.name, restaurant?.phone],
+  )
+
+  const activateLifetime = async () => {
+    setError('')
+    setActivePlan('lifetime')
+
+    try {
+      await loadRazorpayCheckoutScript()
+      const checkoutData = await paymentService.createCheckout('lifetime')
+
+      const orderResponse = await openRazorpay({
+        key: checkoutData.keyId,
+        amount: checkoutData.amount,
+        currency: checkoutData.currency,
+        name: "Chef's Bud",
+        description: 'Lifetime access - one-time payment',
+        order_id: checkoutData.orderId,
+        prefill,
+        theme: { color: '#e50914' },
+      })
+
+      await paymentService.verifyCheckout({
+        plan: 'lifetime',
+        ...orderResponse,
+      })
+
+      navigate('/dashboard', { replace: true })
+    } catch (requestError) {
+      setError(requestError?.response?.data?.message || requestError.message || 'Unable to complete payment')
+    } finally {
+      setActivePlan('')
+    }
+  }
+
+  const activateHybrid = async () => {
+    setError('')
+    setActivePlan('hybrid')
+
+    try {
+      await loadRazorpayCheckoutScript()
+
+      const setupCheckout = await paymentService.createCheckout('hybrid')
+      const setupResponse = await openRazorpay({
+        key: setupCheckout.keyId,
+        amount: setupCheckout.amount,
+        currency: setupCheckout.currency,
+        name: "Chef's Bud",
+        description: 'Hybrid plan setup amount',
+        order_id: setupCheckout.orderId,
+        prefill,
+        theme: { color: '#e50914' },
+      })
+
+      await paymentService.verifyCheckout({
+        plan: 'hybrid',
+        ...setupResponse,
+      })
+
+      const subscriptionCheckout = await paymentService.createHybridSubscription()
+      const subscriptionResponse = await openRazorpay({
+        key: subscriptionCheckout.keyId,
+        subscription_id: subscriptionCheckout.subscriptionId,
+        name: "Chef's Bud",
+        description: 'Hybrid plan - Rs 250 monthly auto-payment',
+        prefill,
+        theme: { color: '#e50914' },
+      })
+
+      await paymentService.verifyHybridSubscription(subscriptionResponse)
+      navigate('/dashboard', { replace: true })
+    } catch (requestError) {
+      setError(requestError?.response?.data?.message || requestError.message || 'Unable to activate hybrid plan')
+    } finally {
+      setActivePlan('')
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-rose-50 px-4 py-10">
+      <div className="mx-auto w-full max-w-5xl">
+        <div className="mb-8 text-center">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-rose-600">Choose Your Plan</p>
+          <h1 className="mt-2 text-3xl font-bold text-slate-900 md:text-4xl">Unlock Chef&apos;s Bud for your business</h1>
+          <p className="mx-auto mt-3 max-w-2xl text-sm text-slate-600 md:text-base">
+            Complete your payment to start using all features. Both plans include the same product access and support.
+          </p>
+          {error ? <p className="mt-3 text-sm font-medium text-[var(--primary)]">{error}</p> : null}
+        </div>
+
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <section className="card flex h-full flex-col p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">One-Time</p>
+            <h2 className="mt-2 text-2xl font-bold text-slate-900">Rs 25,000</h2>
+            <p className="mt-1 text-sm text-slate-600">Lifetime access with no recurring monthly charge.</p>
+
+            <ul className="mt-5 space-y-2 text-sm text-slate-700">
+              {features.map((feature) => (
+                <li key={`lifetime-${feature}`} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  {feature}
+                </li>
+              ))}
+            </ul>
+
+            <Button className="mt-6 w-full" disabled={activePlan !== ''} onClick={activateLifetime}>
+              {activePlan === 'lifetime' ? 'Processing...' : 'Pay Rs 25,000'}
+            </Button>
+          </section>
+
+          <section className="card relative flex h-full flex-col border-rose-200 p-6">
+            <span className="absolute right-4 top-4 rounded-full bg-rose-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-rose-700">
+              Auto-Pay
+            </span>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Hybrid Plan</p>
+            <h2 className="mt-2 text-2xl font-bold text-slate-900">Rs 10,000 + Rs 250/month</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              One-time setup payment now, then monthly auto-debit using Razorpay subscription.
+            </p>
+
+            <ul className="mt-5 space-y-2 text-sm text-slate-700">
+              {features.map((feature) => (
+                <li key={`hybrid-${feature}`} className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">
+                  {feature}
+                </li>
+              ))}
+            </ul>
+
+            <Button className="mt-6 w-full" disabled={activePlan !== ''} onClick={activateHybrid}>
+              {activePlan === 'hybrid' ? 'Processing...' : 'Start Auto-Pay Plan'}
+            </Button>
+          </section>
+        </div>
+      </div>
+    </div>
+  )
+}

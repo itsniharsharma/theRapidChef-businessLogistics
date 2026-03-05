@@ -8,6 +8,7 @@ import tableRoutes from './routes/tableRoutes.js'
 import orderRoutes from './routes/orderRoutes.js'
 import offerRoutes from './routes/offerRoutes.js'
 import analyticsRoutes from './routes/analyticsRoutes.js'
+import paymentRoutes from './routes/paymentRoutes.js'
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js'
 
 const app = express()
@@ -50,6 +51,7 @@ app.use('/api/tables', tableRoutes)
 app.use('/api/orders', orderRoutes)
 app.use('/api/offers', offerRoutes)
 app.use('/api/analytics', analyticsRoutes)
+app.use('/api/payments', paymentRoutes)
 
 app.use(notFoundHandler)
 app.use(errorHandler)

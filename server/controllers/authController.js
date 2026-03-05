@@ -22,6 +22,16 @@ async function getOwnerRestaurant(ownerId) {
   return Restaurant.findOne({ ownerId }).lean()
 }
 
+function serializeUser(user) {
+  return {
+    id: user._id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    billing: user.billing,
+  }
+}
+
 export async function register(req, res, next) {
   try {
     const errors = validationResult(req)
@@ -50,7 +60,7 @@ export async function register(req, res, next) {
     const token = signToken(user)
     return res.status(201).json({
       token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
+      user: serializeUser(user),
       restaurant,
     })
   } catch (error) {
@@ -80,7 +90,7 @@ export async function login(req, res, next) {
     const token = signToken(user)
     return res.json({
       token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
+      user: serializeUser(user),
       restaurant,
     })
   } catch (error) {
@@ -90,14 +100,14 @@ export async function login(req, res, next) {
 
 export async function me(req, res, next) {
   try {
+    const currentUser = await User.findById(req.user._id).lean()
+    if (!currentUser) {
+      return res.status(401).json({ message: 'Unauthorized' })
+    }
+
     const restaurant = await getOwnerRestaurant(req.user._id)
     return res.json({
-      user: {
-        id: req.user._id,
-        name: req.user.name,
-        email: req.user.email,
-        role: req.user.role,
-      },
+      user: serializeUser(currentUser),
       restaurant,
     })
   } catch (error) {

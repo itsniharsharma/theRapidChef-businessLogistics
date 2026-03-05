@@ -23,7 +23,7 @@ export default function RegisterPage() {
 
     try {
       await register({ name, email, password, restaurantName, address, phone })
-      navigate('/dashboard', { replace: true })
+      navigate('/pricing', { replace: true })
     } catch (requestError) {
       setError(requestError?.response?.data?.message || 'Registration failed')
     } finally {

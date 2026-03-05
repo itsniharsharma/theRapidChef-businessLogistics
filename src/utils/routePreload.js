@@ -3,6 +3,7 @@ export const importers = {
   landing: () => import('../pages/LandingPage'),
   login: () => import('../pages/LoginPage'),
   register: () => import('../pages/RegisterPage'),
+  pricing: () => import('../pages/PricingPage'),
   dashboard: () => import('../pages/DashboardPage'),
   orders: () => import('../pages/OrdersPage'),
   menu: () => import('../pages/MenuPage'),

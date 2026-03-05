@@ -7,6 +7,7 @@ const DashboardLayout = lazy(importers.dashboardLayout)
 const LandingPage = lazy(importers.landing)
 const LoginPage = lazy(importers.login)
 const RegisterPage = lazy(importers.register)
+const PricingPage = lazy(importers.pricing)
 const DashboardPage = lazy(importers.dashboard)
 const OrdersPage = lazy(importers.orders)
 const MenuPage = lazy(importers.menu)
@@ -39,6 +40,14 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route
+            path="/pricing"
+            element={
+              <ProtectedRoute>
+                <PricingPage />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/r/:restaurantSlug/t/:tableNumber" element={<CustomerMenuPage />} />
           <Route path="/r/:restaurantSlug/t/:tableNumber/checkout" element={<CustomerCheckoutPage />} />
           <Route path="/r/:restaurantSlug/t/:tableNumber/status" element={<CustomerStatusPage />} />
