@@ -9,6 +9,7 @@ const links = [
   { label: 'Tables', to: '/dashboard/tables' },
   { label: 'Offers', to: '/dashboard/offers' },
   { label: 'Analytics', to: '/dashboard/analytics' },
+  { label: 'Billing', to: '/dashboard/billing' },
   { label: 'Settings', to: '/dashboard/settings' },
 ]
 

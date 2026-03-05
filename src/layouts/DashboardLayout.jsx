@@ -10,6 +10,7 @@ const titles = {
   '/dashboard/tables': 'Table Management',
   '/dashboard/offers': 'Offers',
   '/dashboard/analytics': 'Analytics',
+  '/dashboard/billing': 'Billing',
   '/dashboard/settings': 'Settings',
 }
 
