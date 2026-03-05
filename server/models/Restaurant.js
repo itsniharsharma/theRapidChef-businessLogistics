@@ -8,8 +8,6 @@ const restaurantSchema = new mongoose.Schema(
     address: { type: String, default: '' },
     phone: { type: String, default: '' },
     businessHours: { type: String, default: '' },
-    upiVpa: { type: String, default: '' },
-    upiPayeeName: { type: String, default: '' },
     ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   },
   { timestamps: true },

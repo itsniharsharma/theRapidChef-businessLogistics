@@ -13,8 +13,6 @@ export default function SettingsPage() {
     address: '',
     phone: '',
     businessHours: '',
-    upiVpa: '',
-    upiPayeeName: '',
   })
   const [message, setMessage] = useState('')
   const [uploadingLogo, setUploadingLogo] = useState(false)
@@ -26,8 +24,6 @@ export default function SettingsPage() {
       address: restaurant.address || '',
       phone: restaurant.phone || '',
       businessHours: restaurant.businessHours || '',
-      upiVpa: restaurant.upiVpa || '',
-      upiPayeeName: restaurant.upiPayeeName || '',
     })
     setLogo(restaurant.logo || '')
   }, [restaurant])
@@ -61,8 +57,6 @@ export default function SettingsPage() {
         address: form.address,
         phone: form.phone,
         businessHours: form.businessHours,
-        upiVpa: form.upiVpa,
-        upiPayeeName: form.upiPayeeName,
       })
       .then((updated) => {
         setRestaurant(updated)
@@ -92,16 +86,6 @@ export default function SettingsPage() {
         label="Business Hours"
         value={form.businessHours}
         onChange={(e) => setForm((prev) => ({ ...prev, businessHours: e.target.value }))}
-      />
-      <FormInput
-        label="Owner UPI ID (example: owner@okaxis)"
-        value={form.upiVpa}
-        onChange={(e) => setForm((prev) => ({ ...prev, upiVpa: e.target.value }))}
-      />
-      <FormInput
-        label="UPI Payee Name"
-        value={form.upiPayeeName}
-        onChange={(e) => setForm((prev) => ({ ...prev, upiPayeeName: e.target.value }))}
       />
       <Button type="submit">Save Changes</Button>
     </form>

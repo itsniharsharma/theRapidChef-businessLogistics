@@ -17,8 +17,6 @@ const orderSchema = new mongoose.Schema(
     items: { type: [orderItemSchema], required: true },
     totalAmount: { type: Number, required: true, min: 0 },
     paymentStatus: { type: String, enum: ['Unpaid', 'Paid'], default: 'Unpaid' },
-    razorpayOrderId: { type: String, default: '' },
-    razorpayPaymentId: { type: String, default: '' },
     orderStatus: {
       type: String,
       enum: ['Pending', 'Preparing', 'Ready', 'Served', 'Completed'],
@@ -33,6 +31,5 @@ orderSchema.index({ restaurantId: 1, orderStatus: 1, createdAt: -1 })
 orderSchema.index({ restaurantId: 1, tableNumber: 1, createdAt: -1 })
 orderSchema.index({ restaurantId: 1, paymentStatus: 1, createdAt: -1 })
 orderSchema.index({ restaurantId: 1, paymentStatus: 1, orderStatus: 1, createdAt: -1 })
-orderSchema.index({ razorpayPaymentId: 1 })
 
 export default mongoose.model('Order', orderSchema)

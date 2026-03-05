@@ -4,7 +4,7 @@ import Restaurant from '../models/Restaurant.js'
 import { invalidateCacheByTags } from '../services/responseCache.js'
 
 async function getOwnerRestaurant(ownerId) {
-  return Restaurant.findOne({ ownerId }).lean()
+  return Restaurant.findOne({ ownerId }).select('_id').lean()
 }
 
 async function buildOrderItems(restaurantId, items) {

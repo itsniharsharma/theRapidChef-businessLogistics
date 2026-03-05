@@ -20,7 +20,7 @@ export async function updateMyRestaurant(req, res, next) {
       return res.status(404).json({ message: 'Restaurant not found' })
     }
 
-    const { name, logo, address, phone, businessHours, upiVpa, upiPayeeName } = req.body
+    const { name, logo, address, phone, businessHours } = req.body
 
     if (typeof name === 'string' && name.trim() && name.trim() !== restaurant.name) {
       restaurant.name = name.trim()
@@ -31,8 +31,6 @@ export async function updateMyRestaurant(req, res, next) {
     if (typeof address === 'string') restaurant.address = address
     if (typeof phone === 'string') restaurant.phone = phone
     if (typeof businessHours === 'string') restaurant.businessHours = businessHours
-    if (typeof upiVpa === 'string') restaurant.upiVpa = upiVpa.trim()
-    if (typeof upiPayeeName === 'string') restaurant.upiPayeeName = upiPayeeName.trim()
 
     await restaurant.save()
     return res.json(restaurant)
@@ -44,7 +42,7 @@ export async function updateMyRestaurant(req, res, next) {
 export async function getRestaurantBySlug(req, res, next) {
   try {
     const restaurant = await Restaurant.findOne({ slug: req.params.restaurantSlug })
-      .select('_id name slug logo address phone businessHours upiVpa upiPayeeName')
+      .select('_id name slug logo address phone businessHours')
       .lean()
     if (!restaurant) {
       return res.status(404).json({ message: 'Restaurant not found' })
