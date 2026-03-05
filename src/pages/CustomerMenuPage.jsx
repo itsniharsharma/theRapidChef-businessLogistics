@@ -49,7 +49,7 @@ export default function CustomerMenuPage() {
   })()
 
   if (loading) {
-    return <div className="min-h-screen bg-white p-4 text-sm text-slate-500">Loading menu...</div>
+    return <div className="min-h-screen bg-white p-4 text-sm text-slate-500">Loading luxury menu...</div>
   }
 
   if (error) {
@@ -59,32 +59,46 @@ export default function CustomerMenuPage() {
   return (
     <div className="customer-shell pb-32">
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 p-4 backdrop-blur">
-        <div className="customer-hero p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--primary)]">Hunger Dining</p>
-          <h1 className="mt-1 text-2xl font-bold text-slate-900">Welcome to {menu.restaurant?.name}</h1>
-          <p className="mt-1 text-sm text-slate-600">Fine dining experience • Table {tableNumber}</p>
+        <div className="customer-hero p-4 md:p-5">
+          <p className="customer-page-title text-xs font-semibold uppercase text-[var(--primary)]">Chef's Bud Guest Lounge</p>
+          <h1 className="mt-1 text-2xl font-bold text-slate-900 md:text-3xl">Welcome to {menu.restaurant?.name}</h1>
+          <p className="mt-1 text-sm text-slate-600">Table {tableNumber} • Curated dining crafted for comfort</p>
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+            <div className="rounded-lg border border-red-100 bg-white/80 px-2 py-2">
+              <p className="font-bold text-slate-900">{menu.categories.length}</p>
+              <p className="text-slate-500">Categories</p>
+            </div>
+            <div className="rounded-lg border border-red-100 bg-white/80 px-2 py-2">
+              <p className="font-bold text-slate-900">{menu.items.length}</p>
+              <p className="text-slate-500">Dishes</p>
+            </div>
+            <div className="rounded-lg border border-red-100 bg-white/80 px-2 py-2">
+              <p className="font-bold text-[var(--primary)]">{cart.reduce((sum, i) => sum + i.quantity, 0)}</p>
+              <p className="text-slate-500">In Cart</p>
+            </div>
+          </div>
         </div>
       </header>
 
       <div className="p-4">
         {menu.offers?.length > 0 && (
-          <div className="mb-4 rounded-xl border border-red-100 bg-red-50/80 p-3 text-sm text-[var(--primary)] shadow-sm">
+          <div className="customer-glass mb-4 rounded-xl border border-red-100 bg-red-50/80 p-3 text-sm text-[var(--primary)] shadow-sm">
             {menu.offers.map((offer) => `✨ ${offer.name}`).join('   •   ')}
           </div>
         )}
 
         {!activeCategory ? (
           <div>
-            <h2 className="mb-3 text-lg font-semibold text-slate-900">Explore Our Menu</h2>
+            <h2 className="mb-3 text-lg font-semibold text-slate-900">Explore Signature Categories</h2>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
               {menu.categories.map((category) => (
                 <button
                   key={category._id}
                   onClick={() => setActiveCategory(category._id)}
-                  className="lux-card min-h-32 px-3 py-4 text-center text-base font-semibold text-slate-800 transition hover:-translate-y-0.5 hover:border-red-200 hover:text-[var(--primary)]"
+                  className="lux-card min-h-32 overflow-hidden px-3 py-4 text-center text-base font-semibold text-slate-800 transition hover:-translate-y-1 hover:border-red-200 hover:text-[var(--primary)]"
                 >
-                  <p className="mb-2 text-2xl">🍽️</p>
-                  {category.name}
+                  <div className="mb-2 rounded-lg bg-gradient-to-br from-red-50 to-white p-2 text-2xl">🍽️</div>
+                  <p>{category.name}</p>
                 </button>
               ))}
             </div>
@@ -105,15 +119,15 @@ export default function CustomerMenuPage() {
                   <div key={item._id} className="lux-card p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full border border-red-100 bg-red-50 text-sm font-bold text-[var(--primary)]">
-                          {item.name?.charAt(0) || 'M'}
+                        <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-red-100 bg-gradient-to-br from-red-50 to-white text-sm font-bold text-[var(--primary)]">
+                          {item.name?.charAt(0) || 'D'}
                         </div>
                         <div>
-                        <h3 className="font-semibold text-slate-900">{item.name}</h3>
+                          <h3 className="text-base font-semibold text-slate-900">{item.name}</h3>
                         <p className="text-sm text-slate-600">{item.description || 'A signature dish from our kitchen.'}</p>
                         </div>
                       </div>
-                      <p className="rounded-full border border-red-100 bg-red-50 px-3 py-1 text-sm font-bold text-[var(--primary)]">
+                      <p className="dish-badge rounded-full px-3 py-1 text-sm font-bold">
                         ${Number(item.price).toFixed(2)}
                       </p>
                     </div>
@@ -146,7 +160,7 @@ export default function CustomerMenuPage() {
       </div>
 
       {cart.length > 0 && (
-        <div className="fixed bottom-20 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 p-4 backdrop-blur">
+        <div className="customer-floating-cta fixed bottom-20 left-0 right-0 z-30 p-4">
           <Button className="w-full" onClick={openCheckout}>
             View Cart • ${total.toFixed(2)}
           </Button>

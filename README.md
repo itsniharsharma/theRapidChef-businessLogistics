@@ -1,4 +1,4 @@
-# Hunger – Restaurant Revenue OS
+# Chef's Bud - Restaurant Revenue OS
 
 Full-stack SaaS restaurant revenue platform with:
 
@@ -18,7 +18,7 @@ Full-stack SaaS restaurant revenue platform with:
 
 ```
 PORT=5000
-MONGO_URI=mongodb://127.0.0.1:27017/hunger
+MONGO_URI=mongodb://127.0.0.1:27017/chefs_bud
 MONGO_MAX_POOL_SIZE=25
 MONGO_MIN_POOL_SIZE=5
 MONGO_SERVER_SELECTION_TIMEOUT_MS=8000

@@ -30,14 +30,15 @@ export default function Sidebar({ isOpen, onClose }) {
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-      <div className="owner-header-panel mb-6 p-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--primary)]">Revenue OS</p>
-        <p className="mt-1 text-2xl font-extrabold text-[var(--primary)]">Hunger</p>
+      <div className="owner-header-panel mb-6 p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--primary)]">Executive Suite</p>
+        <p className="mt-1 text-2xl font-extrabold text-[var(--primary)]">Chef's Bud</p>
+        <p className="mt-1 text-xs text-slate-500">Luxury Restaurant Intelligence</p>
       </div>
       <button className="mb-4 text-sm text-slate-600 md:hidden" onClick={onClose}>
         Close
       </button>
-      <nav className="space-y-1">
+      <nav className="space-y-1.5">
         {links.map((link) => (
           <NavLink
             key={link.to}
@@ -47,9 +48,9 @@ export default function Sidebar({ isOpen, onClose }) {
             onMouseEnter={() => preloadRouteByPath(link.to)}
             onFocus={() => preloadRouteByPath(link.to)}
             className={({ isActive }) =>
-              `block rounded-xl px-3 py-2 text-sm font-semibold transition ${
+              `block rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
                 isActive
-                  ? 'bg-[var(--primary)] text-white shadow-sm'
+                  ? 'bg-gradient-to-r from-[var(--primary-dark)] to-[var(--primary)] text-white shadow-[0_12px_22px_rgba(229,9,20,0.24)]'
                   : 'text-slate-700 hover:bg-white hover:text-slate-900 hover:shadow-sm'
               }`
             }
@@ -60,7 +61,7 @@ export default function Sidebar({ isOpen, onClose }) {
       </nav>
       <button
         onClick={onLogout}
-        className="mt-6 w-full rounded-xl border border-red-100 bg-white px-3 py-2 text-left text-sm font-semibold text-slate-700 shadow-sm hover:bg-red-50"
+        className="mt-6 w-full rounded-xl border border-red-100 bg-white px-3 py-2.5 text-left text-sm font-semibold text-slate-700 shadow-sm hover:bg-red-50"
       >
         Logout
       </button>

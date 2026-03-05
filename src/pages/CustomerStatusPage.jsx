@@ -42,7 +42,7 @@ export default function CustomerStatusPage() {
     <div className="customer-shell p-4 pb-32">
       <header className="mb-4 flex items-center justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--primary)]">Order Status Board</p>
+          <p className="customer-page-title text-xs font-semibold uppercase text-[var(--primary)]">Order Status Board</p>
           <h1 className="text-2xl font-bold text-slate-900">Your Orders</h1>
           <p className="text-sm text-slate-500">Table {tableNumber} • Live updates every 5s</p>
         </div>
@@ -54,11 +54,11 @@ export default function CustomerStatusPage() {
       {error && <p className="mb-3 text-sm text-[var(--primary)]">{error}</p>}
 
       <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-        <div className="rounded-xl border border-slate-200 bg-white p-3">
+        <div className="customer-kpi p-3">
           <p className="text-xs uppercase tracking-wider text-slate-500">Total Orders</p>
           <p className="mt-1 text-2xl font-bold text-slate-900">{orders.length}</p>
         </div>
-        <div className="rounded-xl border border-red-100 bg-red-50/80 p-3">
+        <div className="customer-kpi border-red-100 bg-red-50/75 p-3">
           <p className="text-xs uppercase tracking-wider text-slate-500">Active Orders</p>
           <p className="mt-1 text-2xl font-bold text-[var(--primary)]">{activeOrders.length}</p>
         </div>
@@ -69,7 +69,7 @@ export default function CustomerStatusPage() {
       ) : (
         <div className="space-y-3">
           {orders.map((order) => (
-            <div key={order._id} className="lux-card p-4">
+            <div key={order._id} className="lux-card border-red-100 p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="text-sm font-semibold text-slate-900">Order #{order._id.slice(-6).toUpperCase()}</p>
@@ -84,7 +84,7 @@ export default function CustomerStatusPage() {
                 </span>
               </div>
 
-              <div className="mt-3 space-y-1 text-sm text-slate-700">
+              <div className="mt-3 rounded-lg border border-slate-100 bg-white/70 p-2 text-sm text-slate-700">
                 {order.items.map((item) => (
                   <p key={`${order._id}-${item.menuItemId}`}>{item.name} x{item.quantity}</p>
                 ))}

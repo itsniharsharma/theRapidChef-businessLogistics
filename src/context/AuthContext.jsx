@@ -3,7 +3,7 @@ import { authService } from '../services/authService'
 
 export const AuthContext = createContext(null)
 
-const TOKEN_KEY = 'hunger_token'
+const TOKEN_KEY = 'chefs_bud_token'
 
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(localStorage.getItem(TOKEN_KEY))

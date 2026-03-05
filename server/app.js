@@ -40,7 +40,7 @@ app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: false, limit: '1mb' }))
 
 app.get('/api/health', (req, res) => {
-  res.json({ ok: true, app: 'Hunger – Restaurant Revenue OS' })
+  res.json({ ok: true, app: "Chef's Bud - Restaurant Revenue OS" })
 })
 
 app.use('/api/auth', authRoutes)

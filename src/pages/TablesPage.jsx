@@ -111,7 +111,7 @@ export default function TablesPage() {
                 {table.active ? 'Active' : 'Inactive'}
               </span>
             </div>
-            <QRCard tableNumber={table.tableNumber} slug={restaurant?.slug || 'hunger-prime'} />
+            <QRCard tableNumber={table.tableNumber} slug={restaurant?.slug || 'chefs-bud-prime'} />
           </div>
         ))}
       </div>

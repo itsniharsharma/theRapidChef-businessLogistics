@@ -56,15 +56,15 @@ export default function CustomerCheckoutPage() {
     <div className="customer-shell p-4 pb-32">
       <header className="mb-4 flex items-center justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--primary)]">Secure Checkout</p>
-          <h1 className="text-2xl font-bold text-slate-900">Complete Your Order</h1>
+          <p className="customer-page-title text-xs font-semibold uppercase text-[var(--primary)]">Secure Checkout</p>
+          <h1 className="text-2xl font-bold text-slate-900">Complete Your Premium Order</h1>
         </div>
         <Button variant="secondary" onClick={() => navigate(`/r/${restaurantSlug}/t/${tableNumber}`)}>
           Back
         </Button>
       </header>
 
-      <div className="lux-card p-4">
+      <div className="lux-card p-4 md:p-5">
         <p className="text-sm text-slate-500">Table {tableNumber}</p>
         <h2 className="mt-1 text-lg font-semibold">Your Cart</h2>
 
@@ -83,14 +83,14 @@ export default function CustomerCheckoutPage() {
                 </div>
                 <div className="mt-2 flex items-center gap-2">
                   <button
-                    className="h-8 w-8 rounded-lg border border-slate-300 text-slate-700"
+                    className="h-8 w-8 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50"
                     onClick={() => removeItem(restaurantSlug, tableNumber, item.menuItemId)}
                   >
                     -
                   </button>
                   <span className="min-w-6 text-center text-sm font-semibold">{item.quantity}</span>
                   <button
-                    className="h-8 w-8 rounded-lg bg-[var(--primary)] text-white"
+                    className="h-8 w-8 rounded-lg bg-[var(--primary)] text-white hover:opacity-95"
                     onClick={() => addItem(restaurantSlug, tableNumber, { _id: item.menuItemId, ...item })}
                   >
                     +
@@ -101,9 +101,10 @@ export default function CustomerCheckoutPage() {
           </div>
         )}
 
-        <div className="mt-4 rounded-xl border border-red-100 bg-red-50/80 p-3">
+        <div className="customer-glass mt-4 rounded-xl border border-red-100 bg-red-50/70 p-3">
           <p className="text-sm text-slate-600">Total</p>
           <p className="text-xl font-bold text-[var(--primary)]">${total.toFixed(2)}</p>
+          <p className="mt-1 text-xs text-slate-500">Includes all selected items for table {tableNumber}</p>
         </div>
 
         {message && <p className="mt-3 text-sm text-[var(--primary)]">{message}</p>}
@@ -115,6 +116,7 @@ export default function CustomerCheckoutPage() {
           <Button className="w-full" onClick={placeOrder} disabled={!cart.length || !paid || placing}>
             {placing ? 'Placing Order...' : 'Place Order'}
           </Button>
+          <p className="pt-1 text-center text-xs text-slate-500">Secure checkout simulation for demo experience</p>
         </div>
       </div>
 

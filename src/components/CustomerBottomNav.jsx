@@ -5,7 +5,7 @@ const baseItemClass = 'flex min-h-12 flex-col items-center justify-center rounde
 function navClassName({ isActive }) {
   return `${baseItemClass} ${
     isActive
-      ? 'bg-red-50 text-[var(--primary)] border border-red-100'
+      ? 'customer-nav-item-active border'
       : 'text-slate-500 border border-transparent hover:text-slate-700 hover:bg-slate-50'
   }`
 }
@@ -16,7 +16,7 @@ export default function CustomerBottomNav({ restaurantSlug, tableNumber }) {
   const statusPath = `/r/${restaurantSlug}/t/${tableNumber}/status`
 
   return (
-    <footer className="safe-bottom fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 px-3 pt-2 backdrop-blur">
+    <footer className="customer-nav-shell safe-bottom fixed bottom-0 left-0 right-0 z-40 px-3 pt-2">
       <nav className="mx-auto grid max-w-md grid-cols-3 gap-2">
         <NavLink to={menuPath} end className={navClassName}>
           <span className="text-sm">🍽️</span>

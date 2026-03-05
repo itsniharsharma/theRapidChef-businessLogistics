@@ -20,15 +20,17 @@ export default function DashboardLayout() {
   return (
     <div className="owner-shell">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <main className="ml-0 p-3 pb-6 md:ml-64 md:p-6">
+      <main className="ml-0 p-3 pb-8 md:ml-64 md:p-6 lg:p-8">
         <button
-          className="mb-3 rounded-xl border border-red-100 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm md:hidden"
+          className="mb-4 rounded-xl border border-red-100 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm md:hidden"
           onClick={() => setSidebarOpen(true)}
         >
-          ☰ Menu
+          ☰ Workspace Menu
         </button>
         <Header title={titles[location.pathname] || 'Dashboard'} />
-        <Outlet />
+        <div className="premium-grid">
+          <Outlet />
+        </div>
       </main>
     </div>
   )

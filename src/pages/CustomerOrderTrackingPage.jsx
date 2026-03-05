@@ -33,7 +33,7 @@ export default function CustomerOrderTrackingPage() {
     <div className="customer-shell p-4 pb-32">
       <header className="mb-4 flex items-center justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--primary)]">Live Status</p>
+          <p className="customer-page-title text-xs font-semibold uppercase text-[var(--primary)]">Live Status</p>
           <h1 className="text-2xl font-bold text-slate-900">Track Your Order</h1>
         </div>
         <Button variant="secondary" onClick={() => navigate(`/r/${restaurantSlug}/t/${tableNumber}/status`)}>
@@ -41,23 +41,19 @@ export default function CustomerOrderTrackingPage() {
         </Button>
       </header>
 
-      <div className="lux-card p-4">
+      <div className="lux-card p-4 md:p-5">
         <p className="text-sm text-slate-500">Order ID: {orderId}</p>
         <p className="text-sm text-slate-500">Table {tableNumber}</p>
 
         {error && <p className="mt-2 text-sm text-[var(--primary)]">{error}</p>}
 
-        <div className="mt-4 space-y-2">
+        <div className="mt-4 grid gap-2">
           {steps.map((step, index) => {
             const active = index <= currentIndex
             return (
               <div
                 key={step}
-                className={`rounded-lg border px-3 py-2 text-sm ${
-                  active
-                    ? 'border-red-200 bg-red-50 text-[var(--primary)] shadow-sm'
-                    : 'border-slate-200 bg-white text-slate-500'
-                }`}
+                className={`status-step px-3 py-2 text-sm ${active ? 'active' : ''}`}
               >
                 {step}
               </div>
@@ -66,7 +62,7 @@ export default function CustomerOrderTrackingPage() {
         </div>
 
         {order && (
-          <div className="mt-4 rounded-xl border border-red-100 bg-red-50/80 p-3">
+          <div className="customer-glass mt-4 rounded-xl border border-red-100 bg-red-50/80 p-3">
             <p className="text-sm text-slate-600">Current Status</p>
             <p className="text-lg font-semibold text-[var(--primary)]">{order.orderStatus}</p>
             <p className="mt-1 text-sm text-slate-600">Payment: {order.paymentStatus}</p>
