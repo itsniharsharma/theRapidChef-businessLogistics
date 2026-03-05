@@ -3,6 +3,7 @@ import Button from '../components/Button'
 import FormInput from '../components/FormInput'
 import { useAuth } from '../hooks/useAuth'
 import { restaurantService } from '../services/restaurantService'
+import { uploadService } from '../services/uploadService'
 
 export default function SettingsPage() {
   const { restaurant, setRestaurant } = useAuth()
@@ -12,8 +13,11 @@ export default function SettingsPage() {
     address: '',
     phone: '',
     businessHours: '',
+    upiVpa: '',
+    upiPayeeName: '',
   })
   const [message, setMessage] = useState('')
+  const [uploadingLogo, setUploadingLogo] = useState(false)
 
   useEffect(() => {
     if (!restaurant) return
@@ -22,16 +26,28 @@ export default function SettingsPage() {
       address: restaurant.address || '',
       phone: restaurant.phone || '',
       businessHours: restaurant.businessHours || '',
+      upiVpa: restaurant.upiVpa || '',
+      upiPayeeName: restaurant.upiPayeeName || '',
     })
     setLogo(restaurant.logo || '')
   }, [restaurant])
 
-  const onLogoUpload = (event) => {
+  const onLogoUpload = async (event) => {
     const file = event.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => setLogo(String(reader.result || ''))
-    reader.readAsDataURL(file)
+
+    setUploadingLogo(true)
+    setMessage('Uploading logo to Cloudinary...')
+
+    try {
+      const uploaded = await uploadService.uploadImage(file)
+      setLogo(uploaded.url)
+      setMessage('Logo uploaded')
+    } catch (requestError) {
+      setMessage(requestError?.response?.data?.message || 'Failed to upload logo')
+    } finally {
+      setUploadingLogo(false)
+    }
   }
 
   const onSave = (event) => {
@@ -45,6 +61,8 @@ export default function SettingsPage() {
         address: form.address,
         phone: form.phone,
         businessHours: form.businessHours,
+        upiVpa: form.upiVpa,
+        upiPayeeName: form.upiPayeeName,
       })
       .then((updated) => {
         setRestaurant(updated)
@@ -65,7 +83,7 @@ export default function SettingsPage() {
       />
       <label className="block">
         <span className="mb-1 block text-sm font-medium text-slate-700">Logo Upload</span>
-        <input type="file" className="input" accept="image/*" onChange={onLogoUpload} />
+        <input type="file" className="input" accept="image/*" onChange={onLogoUpload} disabled={uploadingLogo} />
       </label>
       {logo && <img src={logo} alt="Logo" className="h-16 w-16 rounded border border-slate-200 object-cover" />}
       <FormInput label="Address" value={form.address} onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))} />
@@ -74,6 +92,16 @@ export default function SettingsPage() {
         label="Business Hours"
         value={form.businessHours}
         onChange={(e) => setForm((prev) => ({ ...prev, businessHours: e.target.value }))}
+      />
+      <FormInput
+        label="Owner UPI ID (example: owner@okaxis)"
+        value={form.upiVpa}
+        onChange={(e) => setForm((prev) => ({ ...prev, upiVpa: e.target.value }))}
+      />
+      <FormInput
+        label="UPI Payee Name"
+        value={form.upiPayeeName}
+        onChange={(e) => setForm((prev) => ({ ...prev, upiPayeeName: e.target.value }))}
       />
       <Button type="submit">Save Changes</Button>
     </form>

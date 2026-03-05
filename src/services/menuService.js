@@ -7,6 +7,9 @@ export const menuService = {
   analyzeWithAI(payload) {
     return api.post('/menu/ai/analyze', payload).then((response) => response.data)
   },
+  importDraft(payload) {
+    return api.post('/menu/import-draft', payload).then((response) => response.data)
+  },
   createCategory(payload) {
     return api.post('/menu/category', payload).then((response) => response.data)
   },

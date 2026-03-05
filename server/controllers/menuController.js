@@ -172,3 +172,108 @@ export async function analyzeMenuWithAI(req, res, next) {
     next(error)
   }
 }
+
+export async function importMenuDraft(req, res, next) {
+  try {
+    const restaurant = await getOwnerRestaurant(req.user._id)
+    if (!restaurant) {
+      return res.status(404).json({ message: 'Restaurant not found' })
+    }
+
+    const draftCategories = Array.isArray(req.body?.categories) ? req.body.categories : []
+    if (!draftCategories.length) {
+      return res.status(400).json({ message: 'Draft categories are required' })
+    }
+
+    const normalizedCategories = draftCategories
+      .map((category) => {
+        const name = String(category?.name || '').trim()
+        if (!name) return null
+
+        const items = (Array.isArray(category?.items) ? category.items : [])
+          .map((item) => {
+            const itemName = String(item?.name || '').trim()
+            const price = Number(item?.price)
+            if (!itemName || Number.isNaN(price) || price < 0) {
+              return null
+            }
+
+            return {
+              name: itemName,
+              description: String(item?.description || '').trim(),
+              price,
+              available: item?.available !== false,
+              bestseller: Boolean(item?.bestseller),
+              image: typeof item?.image === 'string' ? item.image : '',
+            }
+          })
+          .filter(Boolean)
+
+        if (!items.length) return null
+
+        return {
+          name,
+          items,
+        }
+      })
+      .filter(Boolean)
+
+    if (!normalizedCategories.length) {
+      return res.status(400).json({ message: 'No valid categories/items to import' })
+    }
+
+    const uniqueNames = [...new Set(normalizedCategories.map((category) => category.name.toLowerCase()))]
+
+    await Category.bulkWrite(
+      uniqueNames.map((nameLower) => {
+        const originalName = normalizedCategories.find((category) => category.name.toLowerCase() === nameLower)?.name || nameLower
+        return {
+          updateOne: {
+            filter: { restaurantId: restaurant._id, name: originalName },
+            update: { $setOnInsert: { restaurantId: restaurant._id, name: originalName, orderIndex: 0 } },
+            upsert: true,
+          },
+        }
+      }),
+      { ordered: false },
+    )
+
+    const categories = await Category.find({ restaurantId: restaurant._id, name: { $in: normalizedCategories.map((c) => c.name) } })
+      .select('_id name')
+      .lean()
+    const categoryIdByName = new Map(categories.map((category) => [category.name.toLowerCase(), category._id]))
+
+    const itemDocs = []
+    for (const category of normalizedCategories) {
+      const categoryId = categoryIdByName.get(category.name.toLowerCase())
+      if (!categoryId) continue
+
+      for (const item of category.items) {
+        itemDocs.push({
+          restaurantId: restaurant._id,
+          categoryId,
+          name: item.name,
+          description: item.description,
+          price: item.price,
+          image: item.image,
+          available: item.available,
+          bestseller: item.bestseller,
+        })
+      }
+    }
+
+    if (!itemDocs.length) {
+      return res.status(400).json({ message: 'No valid menu items to import' })
+    }
+
+    await MenuItem.insertMany(itemDocs, { ordered: false })
+    invalidateCacheByTags([`menu:${restaurant.slug}`])
+
+    return res.status(201).json({
+      importedCategories: categories.length,
+      importedItems: itemDocs.length,
+    })
+  } catch (error) {
+    next(error)
+  }
+}

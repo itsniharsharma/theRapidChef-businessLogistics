@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { QRCodeCanvas } from 'qrcode.react'
 import Button from '../components/Button'
 import CustomerBottomNav from '../components/CustomerBottomNav'
 import { useCustomerCart } from '../hooks/useCustomerCart'
 import { orderService } from '../services/orderService'
+import { restaurantService } from '../services/restaurantService'
 import { formatCurrencyINR } from '../utils/currency'
 
 export default function CustomerCheckoutPage() {
@@ -11,7 +13,13 @@ export default function CustomerCheckoutPage() {
   const { restaurantSlug, tableNumber } = useParams()
   const { getSession, removeItem, addItem, setPaid, clearSession } = useCustomerCart()
   const [placing, setPlacing] = useState(false)
+  const [openingUpi, setOpeningUpi] = useState(false)
+  const [awaitingUpiReturn, setAwaitingUpiReturn] = useState(false)
+  const [upiLaunchedAt, setUpiLaunchedAt] = useState(0)
   const [message, setMessage] = useState('')
+  const [restaurantInfo, setRestaurantInfo] = useState(null)
+  const [paymentDetailsLoading, setPaymentDetailsLoading] = useState(true)
+  const [paymentDetailsError, setPaymentDetailsError] = useState('')
 
   const session = getSession(restaurantSlug, tableNumber)
   const cart = session.items
@@ -21,12 +29,74 @@ export default function CustomerCheckoutPage() {
     return cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
   }, [cart])
 
-  const payWithDummyRazorpay = () => {
-    setMessage('Opening Razorpay (dummy)...')
-    setTimeout(() => {
+  useEffect(() => {
+    setPaymentDetailsLoading(true)
+    setPaymentDetailsError('')
+
+    restaurantService
+      .getBySlug(restaurantSlug)
+      .then((data) => setRestaurantInfo(data))
+      .catch((requestError) => {
+        setPaymentDetailsError(requestError?.response?.data?.message || 'Unable to load restaurant payment details')
+      })
+      .finally(() => setPaymentDetailsLoading(false))
+  }, [restaurantSlug])
+
+  const upiUrl = useMemo(() => {
+    const upiVpa = restaurantInfo?.upiVpa
+    if (!upiVpa || !total) return ''
+
+    const params = new URLSearchParams({
+      pa: upiVpa,
+      pn: restaurantInfo?.upiPayeeName || restaurantInfo?.name || 'Restaurant',
+      am: total.toFixed(2),
+      cu: 'INR',
+      tn: `Table ${tableNumber} order`,
+    })
+
+    return `upi://pay?${params.toString()}`
+  }, [restaurantInfo?.name, restaurantInfo?.upiPayeeName, restaurantInfo?.upiVpa, tableNumber, total])
+
+  const gpayUrl = useMemo(() => {
+    if (!upiUrl.startsWith('upi://pay?')) return ''
+    return `tez://upi/pay?${upiUrl.slice('upi://pay?'.length)}`
+  }, [upiUrl])
+
+  useEffect(() => {
+    if (!awaitingUpiReturn) return
+
+    const handlePossibleReturn = () => {
+      if (document.visibilityState !== 'visible') return
+      if (Date.now() - upiLaunchedAt < 1500) return
+
+      setAwaitingUpiReturn(false)
+      setOpeningUpi(false)
       setPaid(restaurantSlug, tableNumber, true)
-      setMessage('Payment successful (Dummy Razorpay)')
-    }, 700)
+      setMessage('Payment flow completed. You can now place order.')
+    }
+
+    window.addEventListener('focus', handlePossibleReturn)
+    document.addEventListener('visibilitychange', handlePossibleReturn)
+
+    return () => {
+      window.removeEventListener('focus', handlePossibleReturn)
+      document.removeEventListener('visibilitychange', handlePossibleReturn)
+    }
+  }, [awaitingUpiReturn, upiLaunchedAt, restaurantSlug, setPaid, tableNumber])
+
+  const openUpiApp = () => {
+    if (!gpayUrl) {
+      setMessage('Owner UPI is not configured yet. Please pay at counter.')
+      return
+    }
+
+    setOpeningUpi(true)
+    setAwaitingUpiReturn(true)
+    setUpiLaunchedAt(Date.now())
+    window.location.href = gpayUrl
+    setTimeout(() => {
+      setMessage('Complete payment in Google Pay and return to this page.')
+    }, 900)
   }
 
   const placeOrder = async () => {
@@ -41,6 +111,7 @@ export default function CustomerCheckoutPage() {
         paymentStatus: 'Paid',
         items: cart.map((item) => ({ menuItemId: item.menuItemId, quantity: item.quantity })),
       })
+
       clearSession(restaurantSlug, tableNumber)
       setMessage('Order placed successfully')
       setTimeout(() => {
@@ -108,16 +179,38 @@ export default function CustomerCheckoutPage() {
           <p className="mt-1 text-xs text-slate-500">Includes all selected items for table {tableNumber}</p>
         </div>
 
+        {paymentDetailsLoading ? (
+          <p className="mt-4 text-sm text-slate-500">Loading owner payment details...</p>
+        ) : paymentDetailsError ? (
+          <p className="mt-4 text-sm text-[var(--primary)]">{paymentDetailsError}</p>
+        ) : upiUrl ? (
+          <div className="mt-4 rounded-xl border border-slate-200 bg-white p-3 text-center">
+            <p className="text-sm font-semibold text-slate-800">Scan to Pay with Any UPI App</p>
+            <div className="mt-2 flex justify-center">
+              <QRCodeCanvas value={upiUrl} size={170} />
+            </div>
+            <p className="mt-2 text-xs text-slate-500">UPI ID: {restaurantInfo?.upiVpa}</p>
+          </div>
+        ) : (
+          <p className="mt-4 text-sm text-[var(--primary)]">Owner UPI is not configured. Please pay at counter.</p>
+        )}
+
         {message && <p className="mt-3 text-sm text-[var(--primary)]">{message}</p>}
 
         <div className="mt-4 space-y-2">
-          <Button className="w-full" onClick={payWithDummyRazorpay} disabled={!cart.length || paid}>
-            {paid ? 'Payment Completed (Dummy)' : 'Pay with Razorpay (Dummy)'}
+          <Button
+            className="w-full"
+            onClick={openUpiApp}
+            disabled={!cart.length || paymentDetailsLoading || Boolean(paymentDetailsError) || !gpayUrl || openingUpi || paid}
+          >
+            {openingUpi ? 'Opening Google Pay...' : 'Pay on Google Pay'}
           </Button>
-          <Button className="w-full" onClick={placeOrder} disabled={!cart.length || !paid || placing}>
-            {placing ? 'Placing Order...' : 'Place Order'}
-          </Button>
-          <p className="pt-1 text-center text-xs text-slate-500">Secure checkout simulation for demo experience</p>
+          {paid && (
+            <Button className="w-full" onClick={placeOrder} disabled={!cart.length || placing}>
+              {placing ? 'Placing Order...' : 'Place Order'}
+            </Button>
+          )}
+          <p className="pt-1 text-center text-xs text-slate-500">UPI payment is customer-driven; app marks payment after user confirmation</p>
         </div>
       </div>
 

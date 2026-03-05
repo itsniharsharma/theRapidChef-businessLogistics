@@ -5,6 +5,7 @@ import {
   createMenuItem,
   deleteMenuItem,
   getMenuBySlug,
+  importMenuDraft,
   updateMenuItem,
 } from '../controllers/menuController.js'
 import { requireAuth } from '../middleware/auth.js'
@@ -22,6 +23,7 @@ router.get(
   getMenuBySlug,
 )
 router.post('/ai/analyze', requireAuth, analyzeMenuWithAI)
+router.post('/import-draft', requireAuth, importMenuDraft)
 router.post('/category', requireAuth, createCategory)
 router.post('/item', requireAuth, createMenuItem)
 router.put('/item/:id', requireAuth, updateMenuItem)

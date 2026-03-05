@@ -5,6 +5,7 @@ import Modal from '../components/Modal'
 import { menuService } from '../services/menuService'
 import { useAuth } from '../hooks/useAuth'
 import { formatCurrencyINR } from '../utils/currency'
+import { uploadService } from '../services/uploadService'
 
 const initialForm = {
   name: '',
@@ -39,6 +40,7 @@ export default function MenuPage() {
   const [aiDraftCategories, setAiDraftCategories] = useState([])
   const [aiLoading, setAiLoading] = useState(false)
   const [aiImporting, setAiImporting] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
 
   const categoryMap = useMemo(() => {
     const map = new Map()
@@ -63,12 +65,20 @@ export default function MenuPage() {
     loadMenu().catch(() => setError('Failed to load menu data'))
   }, [loadMenu])
 
-  const onImageUpload = (event) => {
+  const onImageUpload = async (event) => {
     const file = event.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => setForm((prev) => ({ ...prev, image: String(reader.result || '') }))
-    reader.readAsDataURL(file)
+
+    setUploadingImage(true)
+    setError('')
+    try {
+      const uploaded = await uploadService.uploadImage(file)
+      setForm((prev) => ({ ...prev, image: uploaded.url }))
+    } catch (requestError) {
+      setError(requestError?.response?.data?.message || 'Failed to upload menu image')
+    } finally {
+      setUploadingImage(false)
+    }
   }
 
   const onSubmit = (event) => {
@@ -228,64 +238,13 @@ export default function MenuPage() {
   }
 
   const importAiDraftToMenu = async () => {
-    if (!restaurant?.slug || aiDraftCategories.length === 0) return
+    if (aiDraftCategories.length === 0) return
 
     setAiImporting(true)
     setError('')
 
     try {
-      const existing = await menuService.getBySlug(restaurant.slug)
-      const categoryLookup = new Map(
-        (existing.categories || []).map((category) => [category.name.trim().toLowerCase(), category]),
-      )
-
-      for (const draftCategory of aiDraftCategories) {
-        const categoryName = draftCategory.name.trim()
-        if (!categoryName) continue
-
-        let category = categoryLookup.get(categoryName.toLowerCase())
-
-        if (!category) {
-          try {
-            category = await menuService.createCategory({ name: categoryName })
-            categoryLookup.set(categoryName.toLowerCase(), category)
-          } catch (requestError) {
-            if (requestError?.response?.status === 409) {
-              const refetched = await menuService.getBySlug(restaurant.slug)
-              const matched = (refetched.categories || []).find(
-                (current) => current.name.trim().toLowerCase() === categoryName.toLowerCase(),
-              )
-              if (matched) {
-                category = matched
-                categoryLookup.set(categoryName.toLowerCase(), matched)
-              }
-            } else {
-              throw requestError
-            }
-          }
-        }
-
-        if (!category?._id) continue
-
-        for (const draftItem of draftCategory.items || []) {
-          const itemName = draftItem.name.trim()
-          const price = Number(draftItem.price)
-
-          if (!itemName || Number.isNaN(price) || price < 0) {
-            continue
-          }
-
-          await menuService.createItem({
-            name: itemName,
-            description: draftItem.description?.trim() || '',
-            price,
-            categoryId: category._id,
-            image: '',
-            available: Boolean(draftItem.available),
-            bestseller: Boolean(draftItem.bestseller),
-          })
-        }
-      }
+      await menuService.importDraft({ categories: aiDraftCategories })
 
       await loadMenu()
       setAiDraftCategories([])
@@ -470,8 +429,17 @@ export default function MenuPage() {
             </select>
           </label>
           <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">Image Upload</span>
-            <input type="file" accept="image/*" className="input" onChange={onImageUpload} />
+            <span className="mb-1 block text-sm font-medium text-slate-700">
+              Image Upload (Cloudinary)
+            </span>
+            <input
+              type="file"
+              accept="image/*"
+              className="input"
+              onChange={onImageUpload}
+              disabled={uploadingImage}
+            />
+            {uploadingImage && <p className="mt-1 text-xs text-slate-500">Uploading image...</p>}
           </label>
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input

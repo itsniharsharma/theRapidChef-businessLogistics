@@ -7,6 +7,49 @@ async function getOwnerRestaurant(ownerId) {
   return Restaurant.findOne({ ownerId }).lean()
 }
 
+async function buildOrderItems(restaurantId, items) {
+  if (!Array.isArray(items) || !items.length) {
+    const error = new Error('Order items are required')
+    error.statusCode = 400
+    throw error
+  }
+
+  const quantityById = new Map()
+  for (const item of items) {
+    const id = String(item.menuItemId)
+    const quantity = Math.max(1, Number(item.quantity || 1))
+    quantityById.set(id, (quantityById.get(id) || 0) + quantity)
+  }
+
+  const ids = [...quantityById.keys()]
+  const menuItems = await MenuItem.find({ _id: { $in: ids }, restaurantId, available: true })
+    .select('_id name price')
+    .lean()
+
+  const menuMap = new Map(menuItems.map((item) => [String(item._id), item]))
+
+  const orderItems = []
+  for (const [menuItemId, quantity] of quantityById.entries()) {
+    const menuItem = menuMap.get(menuItemId)
+    if (!menuItem) continue
+    orderItems.push({
+      menuItemId: menuItem._id,
+      name: menuItem.name,
+      quantity,
+      price: menuItem.price,
+    })
+  }
+
+  if (!orderItems.length) {
+    const error = new Error('No valid menu items selected')
+    error.statusCode = 400
+    throw error
+  }
+
+  const totalAmount = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  return { orderItems, totalAmount }
+}
+
 export async function getOrders(req, res, next) {
   try {
     const restaurant = await getOwnerRestaurant(req.user._id)
@@ -110,48 +153,14 @@ export async function createOrder(req, res, next) {
       return res.status(404).json({ message: 'Restaurant not found' })
     }
 
-    if (!Array.isArray(items) || !items.length) {
-      return res.status(400).json({ message: 'Order items are required' })
-    }
-
-    const quantityById = new Map()
-    for (const item of items) {
-      const id = String(item.menuItemId)
-      const quantity = Math.max(1, Number(item.quantity || 1))
-      quantityById.set(id, (quantityById.get(id) || 0) + quantity)
-    }
-
-    const ids = [...quantityById.keys()]
-    const menuItems = await MenuItem.find({ _id: { $in: ids }, restaurantId: restaurant._id, available: true })
-      .select('_id name price')
-      .lean()
-
-    const menuMap = new Map(menuItems.map((item) => [String(item._id), item]))
-
-    const orderItems = []
-    for (const [menuItemId, quantity] of quantityById.entries()) {
-      const menuItem = menuMap.get(menuItemId)
-      if (!menuItem) continue
-      orderItems.push({
-        menuItemId: menuItem._id,
-        name: menuItem.name,
-        quantity,
-        price: menuItem.price,
-      })
-    }
-
-    if (!orderItems.length) {
-      return res.status(400).json({ message: 'No valid menu items selected' })
-    }
-
-    const totalAmount = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+    const { orderItems, totalAmount } = await buildOrderItems(restaurant._id, items)
 
     const order = await Order.create({
       restaurantId: restaurant._id,
       tableNumber: Number(tableNumber),
       items: orderItems,
       totalAmount,
-      paymentStatus,
+      paymentStatus: paymentStatus === 'Paid' ? 'Paid' : 'Unpaid',
       orderStatus: 'Pending',
     })
 
