@@ -3,6 +3,7 @@ import Button from '../components/Button'
 import QRCard from '../components/QRCard'
 import { useAuth } from '../hooks/useAuth'
 import { tableService } from '../services/tableService'
+import { buildCustomerMenuUrl } from '../utils/customerUrl'
 
 export default function TablesPage() {
   const [count, setCount] = useState('12')
@@ -40,7 +41,11 @@ export default function TablesPage() {
 
       for (const table of tables) {
         const tableNumber = table.tableNumber
-        const qrValue = `${frontendBaseUrl}/r/${restaurant.slug}/t/${tableNumber}`
+        const qrValue = buildCustomerMenuUrl({
+          baseUrl: frontendBaseUrl,
+          slug: restaurant.slug,
+          tableNumber,
+        })
         const dataUrl = await QRCode.toDataURL(qrValue, {
           width: 720,
           margin: 2,
@@ -58,7 +63,11 @@ export default function TablesPage() {
           `Generated at: ${new Date().toLocaleString()}`,
           '',
           'Each PNG file contains the table QR code URL in this format:',
-          `${frontendBaseUrl}/r/${restaurant.slug}/t/<tableNumber>`,
+          buildCustomerMenuUrl({
+            baseUrl: frontendBaseUrl,
+            slug: restaurant.slug,
+            tableNumber: '<tableNumber>',
+          }),
         ].join('\n'),
       )
 
@@ -111,7 +120,7 @@ export default function TablesPage() {
                 {table.active ? 'Active' : 'Inactive'}
               </span>
             </div>
-            <QRCard tableNumber={table.tableNumber} slug={restaurant?.slug || 'chefs-bud-prime'} />
+            <QRCard tableNumber={table.tableNumber} slug={restaurant?.slug || ''} />
           </div>
         ))}
       </div>

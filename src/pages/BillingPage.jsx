@@ -86,6 +86,7 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true)
   const [deletingOrderId, setDeletingOrderId] = useState('')
   const [error, setError] = useState('')
+  const [readyToDeleteOrderIds, setReadyToDeleteOrderIds] = useState([])
 
   useEffect(() => {
     if (!restaurant?._id) return
@@ -116,12 +117,17 @@ export default function BillingPage() {
       }
       await orderService.delete(order._id)
       setOrders((prev) => prev.filter((entry) => entry._id !== order._id))
+      setReadyToDeleteOrderIds((prev) => prev.filter((id) => id !== order._id))
       setError('')
     } catch (requestError) {
-      setError(requestError?.response?.data?.message || 'Failed to auto-delete billed order')
+      setError(requestError?.response?.data?.message || 'Failed to delete order')
     } finally {
       setDeletingOrderId('')
     }
+  }
+
+  const markReadyToDelete = (orderId) => {
+    setReadyToDeleteOrderIds((prev) => (prev.includes(orderId) ? prev : [...prev, orderId]))
   }
 
   const downloadBill = async (order) => {
@@ -135,8 +141,7 @@ export default function BillingPage() {
     link.click()
     link.remove()
     URL.revokeObjectURL(url)
-
-    await removeBilledOrder(order)
+    markReadyToDelete(order._id)
   }
 
   const printBill = async (order) => {
@@ -148,8 +153,7 @@ export default function BillingPage() {
     printWindow.document.close()
     printWindow.focus()
     printWindow.print()
-
-    await removeBilledOrder(order)
+    markReadyToDelete(order._id)
   }
 
   return (
@@ -196,6 +200,11 @@ export default function BillingPage() {
                   <Button onClick={() => printBill(order)} disabled={deletingOrderId === order._id}>
                     Print Bill
                   </Button>
+                  {readyToDeleteOrderIds.includes(order._id) ? (
+                    <Button variant="secondary" onClick={() => removeBilledOrder(order)} disabled={deletingOrderId === order._id}>
+                      {deletingOrderId === order._id ? 'Deleting...' : 'Delete Order'}
+                    </Button>
+                  ) : null}
                 </div>
               </div>
             ))}

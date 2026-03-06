@@ -23,8 +23,9 @@ const CustomerOrderTrackingPage = lazy(importers.customerTracking)
 
 function BackToLandingLink() {
   const location = useLocation()
+  const isCustomerRoute = location.pathname.startsWith('/r/')
 
-  if (location.pathname === '/') {
+  if (location.pathname === '/' || isCustomerRoute) {
     return null
   }
 
