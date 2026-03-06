@@ -5,8 +5,8 @@ import FormInput from '../components/FormInput'
 import Button from '../components/Button'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('owner@chefsbud.com')
-  const [password, setPassword] = useState('password123')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const { login } = useAuth()

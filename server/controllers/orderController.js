@@ -1,7 +1,9 @@
 import MenuItem from '../models/MenuItem.js'
 import Order from '../models/Order.js'
 import Restaurant from '../models/Restaurant.js'
+import Offer from '../models/Offer.js'
 import { invalidateCacheByTags } from '../services/responseCache.js'
+import { applyOffersToOrder } from '../services/offerEngine.js'
 
 async function getOwnerRestaurant(ownerId) {
   return Restaurant.findOne({ ownerId }).select('_id').lean()
@@ -46,8 +48,8 @@ async function buildOrderItems(restaurantId, items) {
     throw error
   }
 
-  const totalAmount = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
-  return { orderItems, totalAmount }
+  const subtotalAmount = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  return { orderItems, subtotalAmount }
 }
 
 export async function getOrders(req, res, next) {
@@ -80,7 +82,7 @@ export async function getOrders(req, res, next) {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .select('_id tableNumber items totalAmount paymentStatus orderStatus createdAt')
+      .select('_id tableNumber items subtotalAmount discountTotal appliedOffers couponCode totalAmount paymentStatus orderStatus createdAt')
       .lean()
     return res.json(orders)
   } catch (error) {
@@ -146,20 +148,30 @@ export async function deleteOrder(req, res, next) {
 
 export async function createOrder(req, res, next) {
   try {
-    const { restaurantSlug, tableNumber, items, paymentStatus = 'Unpaid' } = req.body
+    const { restaurantSlug, tableNumber, items, paymentStatus = 'Unpaid', couponCode = '' } = req.body
 
     const restaurant = await Restaurant.findOne({ slug: restaurantSlug }).lean()
     if (!restaurant) {
       return res.status(404).json({ message: 'Restaurant not found' })
     }
 
-    const { orderItems, totalAmount } = await buildOrderItems(restaurant._id, items)
+    const { orderItems } = await buildOrderItems(restaurant._id, items)
+    const activeOffers = await Offer.find({ restaurantId: restaurant._id, active: true }).lean()
+    const pricing = applyOffersToOrder({
+      orderItems,
+      offers: activeOffers,
+      couponCode,
+    })
 
     const order = await Order.create({
       restaurantId: restaurant._id,
       tableNumber: Number(tableNumber),
       items: orderItems,
-      totalAmount,
+      subtotalAmount: pricing.subtotalAmount,
+      discountTotal: pricing.discountTotal,
+      appliedOffers: pricing.appliedOffers,
+      couponCode: pricing.couponCodeApplied,
+      totalAmount: pricing.totalAmount,
       paymentStatus: paymentStatus === 'Paid' ? 'Paid' : 'Unpaid',
       orderStatus: 'Pending',
     })
@@ -186,7 +198,9 @@ export async function getPublicOrderStatus(req, res, next) {
       restaurantId: restaurant._id,
       tableNumber: Number(tableNumber),
     })
-      .select('_id tableNumber items totalAmount paymentStatus orderStatus createdAt')
+      .select(
+        '_id tableNumber items subtotalAmount discountTotal appliedOffers couponCode totalAmount paymentStatus orderStatus createdAt',
+      )
       .lean()
 
     if (!order) {
@@ -214,7 +228,9 @@ export async function getPublicTableOrders(req, res, next) {
     })
       .sort({ createdAt: -1 })
       .limit(100)
-      .select('_id tableNumber items totalAmount paymentStatus orderStatus createdAt')
+      .select(
+        '_id tableNumber items subtotalAmount discountTotal appliedOffers couponCode totalAmount paymentStatus orderStatus createdAt',
+      )
       .lean()
 
     return res.json(orders)

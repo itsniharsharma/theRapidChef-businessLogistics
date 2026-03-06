@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Button from '../components/Button'
 import CustomerBottomNav from '../components/CustomerBottomNav'
 import { useCustomerCart } from '../hooks/useCustomerCart'
 import { orderService } from '../services/orderService'
+import { offerService } from '../services/offerService'
 import { formatCurrencyINR } from '../utils/currency'
 
 export default function CustomerCheckoutPage() {
@@ -12,14 +13,35 @@ export default function CustomerCheckoutPage() {
   const { getSession, removeItem, addItem, setPaid, clearSession } = useCustomerCart()
   const [placing, setPlacing] = useState(false)
   const [message, setMessage] = useState('')
+  const [couponCode, setCouponCode] = useState('')
+  const [pricing, setPricing] = useState({ subtotalAmount: 0, discountTotal: 0, totalAmount: 0, appliedOffers: [] })
 
   const session = getSession(restaurantSlug, tableNumber)
   const cart = session.items
   const paid = session.paid
 
-  const total = useMemo(() => {
+  const subtotal = useMemo(() => {
     return cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
   }, [cart])
+
+  useEffect(() => {
+    if (!cart.length) {
+      setPricing({ subtotalAmount: 0, discountTotal: 0, totalAmount: 0, appliedOffers: [] })
+      return
+    }
+
+    offerService
+      .preview(restaurantSlug, {
+        items: cart.map((item) => ({ menuItemId: item.menuItemId, quantity: item.quantity })),
+        couponCode,
+      })
+      .then((preview) => {
+        setPricing(preview)
+      })
+      .catch(() => {
+        setPricing({ subtotalAmount: subtotal, discountTotal: 0, totalAmount: subtotal, appliedOffers: [] })
+      })
+  }, [cart, couponCode, restaurantSlug, subtotal])
 
   const payWithDummy = () => {
     setMessage('Opening payment gateway...')
@@ -39,6 +61,7 @@ export default function CustomerCheckoutPage() {
         restaurantSlug,
         tableNumber: Number(tableNumber),
         paymentStatus: 'Paid',
+        couponCode,
         items: cart.map((item) => ({ menuItemId: item.menuItemId, quantity: item.quantity })),
       })
 
@@ -104,10 +127,35 @@ export default function CustomerCheckoutPage() {
         )}
 
         <div className="customer-glass mt-4 rounded-xl border border-red-100 bg-red-50/70 p-3">
-          <p className="text-sm text-slate-600">Total</p>
-          <p className="text-xl font-bold text-[var(--primary)]">{formatCurrencyINR(total)}</p>
+          <p className="text-sm text-slate-600">Subtotal</p>
+          <p className="text-base font-semibold text-slate-900">{formatCurrencyINR(pricing.subtotalAmount ?? subtotal)}</p>
+          <p className="mt-1 text-sm text-slate-600">Discount</p>
+          <p className="text-base font-semibold text-emerald-700">- {formatCurrencyINR(pricing.discountTotal || 0)}</p>
+          <p className="mt-1 text-sm text-slate-600">Total</p>
+          <p className="text-xl font-bold text-[var(--primary)]">{formatCurrencyINR(pricing.totalAmount ?? subtotal)}</p>
           <p className="mt-1 text-xs text-slate-500">Includes all selected items for table {tableNumber}</p>
         </div>
+
+        <label className="mt-3 block">
+          <span className="mb-1 block text-sm font-medium text-slate-700">Coupon Code (optional)</span>
+          <input
+            className="input"
+            value={couponCode}
+            onChange={(event) => setCouponCode(event.target.value.toUpperCase())}
+            placeholder="Enter coupon code"
+          />
+        </label>
+
+        {Array.isArray(pricing.appliedOffers) && pricing.appliedOffers.length ? (
+          <div className="mt-3 space-y-2 rounded-lg border border-slate-200 bg-white p-3 text-sm">
+            <p className="font-semibold text-slate-800">Applied Offers</p>
+            {pricing.appliedOffers.map((offer) => (
+              <p key={`${offer.offerId}-${offer.description}`} className="text-slate-600">
+                {offer.description} • Saved {formatCurrencyINR(offer.discountAmount)}
+              </p>
+            ))}
+          </div>
+        ) : null}
 
         {message && <p className="mt-3 text-sm text-[var(--primary)]">{message}</p>}
 

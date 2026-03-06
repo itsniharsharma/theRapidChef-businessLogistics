@@ -30,6 +30,15 @@ function buildBillHtml(order, restaurantName) {
     })
     .join('')
 
+  const offerRows = (order.appliedOffers || [])
+    .map((offer) => `
+      <tr>
+        <td colspan="3">${escapeHtml(offer.description || offer.name || 'Offer')}</td>
+        <td style="text-align:right;">- ${escapeHtml(formatCurrencyINR(offer.discountAmount || 0))}</td>
+      </tr>
+    `)
+    .join('')
+
   return `<!doctype html>
 <html>
   <head>
@@ -71,10 +80,14 @@ function buildBillHtml(order, restaurantName) {
       </thead>
       <tbody>
         ${rows}
+        ${offerRows}
       </tbody>
     </table>
 
+    <p class="meta">Subtotal: ${escapeHtml(formatCurrencyINR(order.subtotalAmount || order.totalAmount || 0))}</p>
+    <p class="meta">Discount: ${escapeHtml(formatCurrencyINR(order.discountTotal || 0))}</p>
     <p class="total">Total: ${escapeHtml(formatCurrencyINR(order.totalAmount))}</p>
+    ${order.couponCode ? `<p class="meta">Coupon: ${escapeHtml(order.couponCode)}</p>` : ''}
     <p class="meta">Payment: ${escapeHtml(order.paymentStatus)} | Status: ${escapeHtml(order.orderStatus)}</p>
   </body>
 </html>`
@@ -186,6 +199,9 @@ export default function BillingPage() {
                     <p className="font-semibold text-slate-900">Order #{order._id.slice(-8).toUpperCase()}</p>
                     <p className="text-xs text-slate-500">{new Date(order.createdAt).toLocaleString()}</p>
                     <p className="mt-1 text-slate-600">Table {order.tableNumber} • {order.paymentStatus} • {order.orderStatus}</p>
+                    {order.discountTotal > 0 ? (
+                      <p className="text-xs text-emerald-700">Saved {formatCurrencyINR(order.discountTotal)} via offers</p>
+                    ) : null}
                   </div>
                   <p className="text-base font-bold text-[var(--primary)]">{formatCurrencyINR(order.totalAmount)}</p>
                 </div>

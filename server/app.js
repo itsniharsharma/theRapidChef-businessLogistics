@@ -14,6 +14,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler.js'
 const app = express()
 app.set('trust proxy', 1)
 app.set('etag', 'strong')
+const isProduction = process.env.NODE_ENV === 'production'
 
 const originConfig = (process.env.CORS_ORIGIN || 'http://localhost:5173')
   .split(',')
@@ -23,15 +24,24 @@ const corsOptions = {
   origin: (origin, callback) => {
     if (!origin) return callback(null, true)
 
-    const allowlisted = originConfig.includes(origin)
+    const normalizedOrigin = String(origin).trim()
+    const allowlisted = originConfig.includes(normalizedOrigin)
     const localhostLike = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)
-    const ngrokLike = /^https?:\/\/[a-z0-9-]+\.(ngrok-free\.dev|ngrok-free\.app|ngrok\.io)$/i.test(origin)
+    const lanLike =
+      /^https?:\/\/(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})(:\d+)?$/i.test(
+        origin,
+      )
+    const ngrokLike = /^https?:\/\/[a-z0-9-]+\.(ngrok-free\.dev|ngrok-free\.app|ngrok\.io|ngrok\.app)$/i.test(
+      origin,
+    )
 
-    if (allowlisted || localhostLike || ngrokLike) {
+    if (allowlisted || localhostLike || lanLike || ngrokLike || !isProduction) {
       return callback(null, true)
     }
 
-    return callback(new Error('CORS origin not allowed'))
+    const corsError = new Error('CORS origin not allowed')
+    corsError.status = 403
+    return callback(corsError)
   },
 }
 

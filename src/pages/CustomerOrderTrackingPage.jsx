@@ -67,6 +67,9 @@ export default function CustomerOrderTrackingPage() {
             <p className="text-sm text-slate-600">Current Status</p>
             <p className="text-lg font-semibold text-[var(--primary)]">{order.orderStatus}</p>
             <p className="mt-1 text-sm text-slate-600">Payment: {order.paymentStatus}</p>
+            <p className="mt-1 text-sm text-slate-600">Subtotal: {formatCurrencyINR(order.subtotalAmount || order.totalAmount)}</p>
+            <p className="mt-1 text-sm text-emerald-700">Discount: - {formatCurrencyINR(order.discountTotal || 0)}</p>
+            {order.couponCode ? <p className="mt-1 text-sm text-slate-600">Coupon: {order.couponCode}</p> : null}
             <p className="mt-1 text-sm font-semibold text-slate-800">Total: {formatCurrencyINR(order.totalAmount)}</p>
           </div>
         )}

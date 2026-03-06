@@ -95,7 +95,14 @@ export default function CustomerStatusPage() {
               </div>
 
               <div className="mt-3 flex items-center justify-between">
-                <p className="text-sm font-semibold text-slate-900">Total: {formatCurrencyINR(order.totalAmount)}</p>
+                <div>
+                  {order.discountTotal > 0 ? (
+                    <p className="text-xs text-emerald-700">
+                      Saved {formatCurrencyINR(order.discountTotal)}{order.couponCode ? ` using ${order.couponCode}` : ''}
+                    </p>
+                  ) : null}
+                  <p className="text-sm font-semibold text-slate-900">Total: {formatCurrencyINR(order.totalAmount)}</p>
+                </div>
                 <Button
                   variant="secondary"
                   onClick={() => navigate(`/r/${restaurantSlug}/t/${tableNumber}/order/${order._id}`)}

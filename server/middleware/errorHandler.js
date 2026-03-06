@@ -3,10 +3,18 @@ export function notFoundHandler(req, res) {
 }
 
 export function errorHandler(error, req, res, _next) {
-  const status = error.status || 500
+  const status = error.status || error.statusCode || 500
   const message = error.message || 'Internal server error'
-  if (status >= 500) {
+  const isProduction = process.env.NODE_ENV === 'production'
+
+  if (status >= 500 || !isProduction) {
     console.error(error)
   }
-  res.status(status).json({ message })
+
+  const payload = { message }
+  if (!isProduction && error?.stack) {
+    payload.stack = error.stack
+  }
+
+  res.status(status).json(payload)
 }

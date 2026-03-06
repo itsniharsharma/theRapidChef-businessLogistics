@@ -10,6 +10,12 @@ function normalizeGstin(value) {
 }
 
 function signToken(user) {
+  if (!process.env.JWT_SECRET) {
+    const error = new Error('JWT_SECRET is not configured')
+    error.statusCode = 500
+    throw error
+  }
+
   return jwt.sign(
     {
       userId: String(user._id || user.id),
@@ -44,9 +50,10 @@ export async function register(req, res, next) {
     }
 
     const { name, email, password, restaurantName, address = '', phone = '', gstin } = req.body
+    const normalizedEmail = String(email || '').trim().toLowerCase()
     const normalizedGstin = normalizeGstin(gstin)
 
-    const existing = await User.findOne({ email: String(email).toLowerCase() }).lean()
+    const existing = await User.findOne({ email: normalizedEmail }).lean()
     if (existing) {
       return res.status(409).json({ message: 'Email is already in use' })
     }
@@ -56,8 +63,8 @@ export async function register(req, res, next) {
       return res.status(409).json({ message: 'GSTIN is already registered' })
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10)
-    const user = await User.create({ name, email, password: hashedPassword, role: 'owner' })
+    const hashedPassword = await bcrypt.hash(String(password), 10)
+    const user = await User.create({ name, email: normalizedEmail, password: hashedPassword, role: 'owner' })
 
     const slug = await uniqueSlug(restaurantName || `${name} restaurant`, Restaurant)
     const restaurant = await Restaurant.create({
@@ -76,8 +83,23 @@ export async function register(req, res, next) {
       restaurant,
     })
   } catch (error) {
-    if (error.code === 11000 && error.keyPattern?.gstin) {
-      return res.status(409).json({ message: 'GSTIN is already registered' })
+    if (error?.code === 11000) {
+      const duplicateFields = {
+        ...error?.keyPattern,
+        ...error?.keyValue,
+      }
+
+      if ('gstin' in duplicateFields) {
+        return res.status(409).json({ message: 'GSTIN is already registered' })
+      }
+
+      if ('email' in duplicateFields) {
+        return res.status(409).json({ message: 'Email is already in use' })
+      }
+
+      if ('slug' in duplicateFields) {
+        return res.status(409).json({ message: 'Restaurant slug already exists. Please try again.' })
+      }
     }
     next(error)
   }
@@ -91,12 +113,23 @@ export async function login(req, res, next) {
     }
 
     const { email, password } = req.body
-    const user = await User.findOne({ email: String(email).toLowerCase() })
+    const normalizedEmail = String(email || '').trim().toLowerCase()
+    const user = await User.findOne({ email: normalizedEmail })
     if (!user) {
       return res.status(401).json({ message: 'Invalid email or password' })
     }
 
-    const valid = await bcrypt.compare(password, user.password)
+    if (typeof user.password !== 'string' || user.password.length === 0) {
+      return res.status(401).json({ message: 'Invalid email or password' })
+    }
+
+    let valid = false
+    try {
+      valid = await bcrypt.compare(String(password || ''), user.password)
+    } catch {
+      valid = false
+    }
+
     if (!valid) {
       return res.status(401).json({ message: 'Invalid email or password' })
     }
