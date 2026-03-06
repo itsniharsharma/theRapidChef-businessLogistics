@@ -5,14 +5,12 @@ import Modal from '../components/Modal'
 import { menuService } from '../services/menuService'
 import { useAuth } from '../hooks/useAuth'
 import { formatCurrencyINR } from '../utils/currency'
-import { uploadService } from '../services/uploadService'
 
 const initialForm = {
   name: '',
   description: '',
   price: '',
   categoryId: '',
-  image: '',
   available: true,
   bestseller: false,
 }
@@ -35,12 +33,10 @@ export default function MenuPage() {
   const [editingId, setEditingId] = useState(null)
   const [error, setError] = useState('')
   const [aiText, setAiText] = useState('')
-  const [aiImageDataUrl, setAiImageDataUrl] = useState('')
   const [aiSourceFile, setAiSourceFile] = useState('')
   const [aiDraftCategories, setAiDraftCategories] = useState([])
   const [aiLoading, setAiLoading] = useState(false)
   const [aiImporting, setAiImporting] = useState(false)
-  const [uploadingImage, setUploadingImage] = useState(false)
 
   const categoryMap = useMemo(() => {
     const map = new Map()
@@ -64,22 +60,6 @@ export default function MenuPage() {
   useEffect(() => {
     loadMenu().catch(() => setError('Failed to load menu data'))
   }, [loadMenu])
-
-  const onImageUpload = async (event) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    setUploadingImage(true)
-    setError('')
-    try {
-      const uploaded = await uploadService.uploadImage(file)
-      setForm((prev) => ({ ...prev, image: uploaded.url }))
-    } catch (requestError) {
-      setError(requestError?.response?.data?.message || 'Failed to upload menu image')
-    } finally {
-      setUploadingImage(false)
-    }
-  }
 
   const onSubmit = (event) => {
     event.preventDefault()
@@ -141,18 +121,7 @@ export default function MenuPage() {
     const reader = new FileReader()
     reader.onload = () => {
       const result = String(reader.result || '')
-      if (file.type.startsWith('image/')) {
-        setAiImageDataUrl(result)
-        setAiText('')
-      } else {
-        setAiText(result)
-        setAiImageDataUrl('')
-      }
-    }
-
-    if (file.type.startsWith('image/')) {
-      reader.readAsDataURL(file)
-      return
+      setAiText(result)
     }
 
     reader.readAsText(file)
@@ -165,7 +134,6 @@ export default function MenuPage() {
     try {
       const payload = {
         menuText: aiText.trim() || undefined,
-        menuImageDataUrl: aiImageDataUrl || undefined,
       }
       const data = await menuService.analyzeWithAI(payload)
 
@@ -249,7 +217,6 @@ export default function MenuPage() {
       await loadMenu()
       setAiDraftCategories([])
       setAiText('')
-      setAiImageDataUrl('')
       setAiSourceFile('')
     } catch (requestError) {
       setError(requestError?.response?.data?.message || 'Failed to import AI-generated menu')
@@ -264,10 +231,9 @@ export default function MenuPage() {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold">AI Menu Import</h2>
-            <p className="text-sm text-slate-600">Upload menu text/image and auto-generate categories with priced items.</p>
-            <p className="text-xs text-slate-500">Text files work with free auto-parse fallback. Image parsing needs OpenAI credits.</p>
+            <p className="text-sm text-slate-600">Upload a menu text file and auto-generate categories with priced items.</p>
           </div>
-          <Button variant="secondary" onClick={runAiAnalysis} disabled={aiLoading || (!aiText.trim() && !aiImageDataUrl)}>
+          <Button variant="secondary" onClick={runAiAnalysis} disabled={aiLoading || !aiText.trim()}>
             {aiLoading ? 'Analyzing...' : 'Analyze with AI'}
           </Button>
         </div>
@@ -277,7 +243,7 @@ export default function MenuPage() {
             <span className="mb-1 block text-sm font-medium text-slate-700">Upload Menu File</span>
             <input
               type="file"
-              accept=".txt,.csv,.md,.json,image/*"
+              accept=".txt,.csv,.md,.json"
               className="input"
               onChange={onAiFileUpload}
             />
@@ -290,12 +256,7 @@ export default function MenuPage() {
               className="input"
               rows={5}
               value={aiText}
-              onChange={(e) => {
-                setAiText(e.target.value)
-                if (e.target.value.trim()) {
-                  setAiImageDataUrl('')
-                }
-              }}
+              onChange={(e) => setAiText(e.target.value)}
               placeholder="Example: Paneer Tikka - 220"
             />
           </label>
@@ -428,19 +389,6 @@ export default function MenuPage() {
               ))}
             </select>
           </label>
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">
-              Image Upload (Cloudinary)
-            </span>
-            <input
-              type="file"
-              accept="image/*"
-              className="input"
-              onChange={onImageUpload}
-              disabled={uploadingImage}
-            />
-            {uploadingImage && <p className="mt-1 text-xs text-slate-500">Uploading image...</p>}
-          </label>
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input
               type="checkbox"
@@ -457,9 +405,6 @@ export default function MenuPage() {
             />
             Bestseller
           </label>
-          {form.image && (
-            <img src={form.image} alt="Preview" className="h-24 w-24 rounded-lg border border-slate-200 object-cover" />
-          )}
           <div className="md:col-span-2">
             <Button type="submit">{editingId ? 'Update Item' : 'Add Item'}</Button>
           </div>

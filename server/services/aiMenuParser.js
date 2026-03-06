@@ -199,18 +199,6 @@ function normalizeParsedMenu(parsed) {
   return { categories: normalized }
 }
 
-function parseDataUrl(dataUrl) {
-  const match = String(dataUrl || '').match(/^data:([^;]+);base64,(.+)$/)
-  if (!match) {
-    return null
-  }
-
-  return {
-    mimeType: match[1],
-    data: match[2],
-  }
-}
-
 function buildExtractionInstruction() {
   return [
     'Extract restaurant menu data into strict JSON only.',
@@ -220,27 +208,11 @@ function buildExtractionInstruction() {
   ].join('\n')
 }
 
-async function parseWithGemini({ apiKey, model, menuText, menuImageDataUrl }) {
+async function parseWithGemini({ apiKey, model, menuText }) {
   const parts = [{ text: buildExtractionInstruction() }]
 
   if (menuText) {
     parts.push({ text: `Menu input text:\n${menuText}` })
-  }
-
-  if (menuImageDataUrl) {
-    const parsed = parseDataUrl(menuImageDataUrl)
-    if (!parsed) {
-      const error = new Error('Invalid image data format for Gemini')
-      error.status = 400
-      throw error
-    }
-
-    parts.push({
-      inline_data: {
-        mime_type: parsed.mimeType,
-        data: parsed.data,
-      },
-    })
   }
 
   const response = await fetch(
@@ -279,7 +251,7 @@ async function parseWithGemini({ apiKey, model, menuText, menuImageDataUrl }) {
   return normalizeParsedMenu(parsed)
 }
 
-async function parseWithOpenAI({ apiKey, model, menuText, menuImageDataUrl }) {
+async function parseWithOpenAI({ apiKey, model, menuText }) {
   const userContent = [
     {
       type: 'text',
@@ -291,15 +263,6 @@ async function parseWithOpenAI({ apiKey, model, menuText, menuImageDataUrl }) {
     userContent.push({
       type: 'text',
       text: `Menu input text:\n${menuText}`,
-    })
-  }
-
-  if (menuImageDataUrl) {
-    userContent.push({
-      type: 'image_url',
-      image_url: {
-        url: menuImageDataUrl,
-      },
     })
   }
 
@@ -341,24 +304,18 @@ async function parseWithOpenAI({ apiKey, model, menuText, menuImageDataUrl }) {
   return normalizeParsedMenu(parsed)
 }
 
-export async function parseMenuWithAI({ menuText, menuImageDataUrl }) {
+export async function parseMenuWithAI({ menuText }) {
   const geminiApiKey = process.env.GEMINI_API_KEY
   const openaiApiKey = process.env.OPENAI_API_KEY
 
-  if (!menuText && !menuImageDataUrl) {
-    const error = new Error('Provide menu text or menu image to analyze')
+  if (!menuText) {
+    const error = new Error('Provide menu text to analyze')
     error.status = 400
     throw error
   }
 
   if (!geminiApiKey && !openaiApiKey && menuText) {
     return parseMenuWithHeuristics(menuText)
-  }
-
-  if (!geminiApiKey && !openaiApiKey && menuImageDataUrl) {
-    const error = new Error('Gemini/OpenAI key or credits are required for image menu parsing. Upload text/CSV for free parsing.')
-    error.status = 402
-    throw error
   }
 
   let normalized = { categories: [] }
@@ -370,7 +327,6 @@ export async function parseMenuWithAI({ menuText, menuImageDataUrl }) {
         apiKey: geminiApiKey,
         model: geminiModel,
         menuText,
-        menuImageDataUrl,
       })
     } else if (openaiApiKey) {
       const openaiModel = process.env.OPENAI_MODEL || 'gpt-4o-mini'
@@ -378,7 +334,6 @@ export async function parseMenuWithAI({ menuText, menuImageDataUrl }) {
         apiKey: openaiApiKey,
         model: openaiModel,
         menuText,
-        menuImageDataUrl,
       })
     }
   } catch (providerError) {

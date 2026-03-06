@@ -9,6 +9,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [restaurantName, setRestaurantName] = useState('')
+  const [gstin, setGstin] = useState('')
   const [address, setAddress] = useState('')
   const [phone, setPhone] = useState('')
   const [loading, setLoading] = useState(false)
@@ -22,7 +23,15 @@ export default function RegisterPage() {
     setError('')
 
     try {
-      await register({ name, email, password, restaurantName, address, phone })
+      await register({
+        name,
+        email,
+        password,
+        restaurantName,
+        gstin: gstin.trim().toUpperCase().replace(/\s+/g, ''),
+        address,
+        phone,
+      })
       navigate('/pricing', { replace: true })
     } catch (requestError) {
       setError(requestError?.response?.data?.message || 'Registration failed')
@@ -34,6 +43,9 @@ export default function RegisterPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-white px-4">
       <form className="card w-full max-w-md p-6" onSubmit={onSubmit}>
+        <Link to="/" className="mb-4 inline-block text-sm font-semibold text-slate-600 hover:text-[var(--primary)]">
+          ← Back to Landing
+        </Link>
         <h1 className="text-2xl font-bold text-slate-900">Create account</h1>
         <p className="mb-5 mt-1 text-sm text-slate-500">Start with Chef's Bud today</p>
         {error && <p className="mb-3 text-sm text-[var(--primary)]">{error}</p>}
@@ -51,6 +63,13 @@ export default function RegisterPage() {
             label="Restaurant Name"
             value={restaurantName}
             onChange={(e) => setRestaurantName(e.target.value)}
+            required
+          />
+          <FormInput
+            label="GSTIN"
+            value={gstin}
+            onChange={(e) => setGstin(e.target.value)}
+            placeholder="22AAAAA0000A1Z5"
             required
           />
           <FormInput label="Address" value={address} onChange={(e) => setAddress(e.target.value)} />

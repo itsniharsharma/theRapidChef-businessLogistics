@@ -31,6 +31,9 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-white px-4">
       <form className="card w-full max-w-md p-6" onSubmit={onSubmit}>
+        <Link to="/" className="mb-4 inline-block text-sm font-semibold text-slate-600 hover:text-[var(--primary)]">
+          ← Back to Landing
+        </Link>
         <h1 className="text-2xl font-bold text-slate-900">Login to Chef's Bud</h1>
         <p className="mb-5 mt-1 text-sm text-slate-500">Restaurant Revenue OS for owners</p>
         {error && <p className="mb-3 text-sm text-[var(--primary)]">{error}</p>}

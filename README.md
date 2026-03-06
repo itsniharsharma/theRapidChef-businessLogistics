@@ -101,7 +101,7 @@ Orders persist to MongoDB and appear in owner dashboard polling.
 ## AI Menu Import (Owner → Menu)
 
 - Open Menu section in owner dashboard.
-- Upload a menu file (`.txt`, `.csv`, `.md`, `.json`) or menu image.
+- Upload a menu text file (`.txt`, `.csv`, `.md`, `.json`).
 - Click **Analyze with AI** to auto-generate categories + items + prices.
 - Review and manually edit the generated draft.
 - Click **Import to Menu** to save into MongoDB categories/items.
@@ -110,7 +110,7 @@ Provider priority:
 
 - If `GEMINI_API_KEY` is set, backend uses Gemini first (recommended free-tier testing path).
 - If Gemini is not set but OpenAI is set, backend uses OpenAI.
-- If neither key is set, text input still works via local heuristic parser (image parsing requires Gemini/OpenAI).
+- If neither key is set, text input still works via local heuristic parser.
 
 Performance notes:
 

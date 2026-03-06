@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Button from '../components/Button'
 import CustomerBottomNav from '../components/CustomerBottomNav'
@@ -37,7 +37,10 @@ export default function CustomerStatusPage() {
     return () => clearInterval(interval)
   }, [restaurantSlug, tableNumber])
 
-  const activeOrders = orders.filter((order) => !['Served', 'Completed'].includes(order.orderStatus))
+  const activeOrders = useMemo(
+    () => orders.filter((order) => !['Served', 'Completed'].includes(order.orderStatus)),
+    [orders],
+  )
 
   return (
     <div className="customer-shell p-4 pb-32">

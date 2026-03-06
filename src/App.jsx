@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
 import { importers, warmCriticalRoutes } from './utils/routePreload'
 
@@ -21,6 +21,23 @@ const CustomerCheckoutPage = lazy(importers.customerCheckout)
 const CustomerStatusPage = lazy(importers.customerStatus)
 const CustomerOrderTrackingPage = lazy(importers.customerTracking)
 
+function BackToLandingLink() {
+  const location = useLocation()
+
+  if (location.pathname === '/') {
+    return null
+  }
+
+  return (
+    <Link
+      to="/"
+      className="fixed left-4 top-4 z-50 rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm backdrop-blur hover:text-[var(--primary)]"
+    >
+      ← Landing
+    </Link>
+  )
+}
+
 function App() {
   useEffect(() => {
     const idleCallback = window.requestIdleCallback || ((callback) => window.setTimeout(callback, 250))
@@ -35,19 +52,14 @@ function App() {
 
   return (
     <BrowserRouter>
+      <BackToLandingLink />
       <Suspense fallback={<div className="p-6 text-sm text-slate-500">Loading...</div>}>
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          <Route
-            path="/pricing"
-            element={
-              <ProtectedRoute>
-                <PricingPage />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/plans" element={<PricingPage />} />
+          <Route path="/pricing" element={<Navigate to="/plans" replace />} />
           <Route path="/r/:restaurantSlug/t/:tableNumber" element={<CustomerMenuPage />} />
           <Route path="/r/:restaurantSlug/t/:tableNumber/checkout" element={<CustomerCheckoutPage />} />
           <Route path="/r/:restaurantSlug/t/:tableNumber/status" element={<CustomerStatusPage />} />

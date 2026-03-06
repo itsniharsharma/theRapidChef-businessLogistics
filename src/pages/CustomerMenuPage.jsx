@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Button from '../components/Button'
 import CustomerBottomNav from '../components/CustomerBottomNav'
@@ -32,22 +32,26 @@ export default function CustomerMenuPage() {
       .finally(() => setLoading(false))
   }, [restaurantSlug])
 
-  const visibleItems = (() => {
+  const visibleItems = useMemo(() => {
     if (!activeCategory) return []
     return menu.items.filter((item) => item.available && item.categoryId === activeCategory)
-  })()
+  }, [activeCategory, menu.items])
 
-  const getQuantity = (itemId) => {
-    return cart.find((entry) => entry.menuItemId === itemId)?.quantity || 0
-  }
+  const cartQuantityByItemId = useMemo(() => {
+    const quantityMap = new Map()
+    for (const entry of cart) {
+      quantityMap.set(entry.menuItemId, entry.quantity)
+    }
+    return quantityMap
+  }, [cart])
 
   const openCheckout = () => {
     navigate(`/r/${restaurantSlug}/t/${tableNumber}/checkout`)
   }
 
-  const total = (() => {
-    return cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
-  })()
+  const total = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart])
+
+  const totalItemCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart])
 
   if (loading) {
     return <div className="min-h-screen bg-white p-4 text-sm text-slate-500">Loading luxury menu...</div>
@@ -74,7 +78,7 @@ export default function CustomerMenuPage() {
               <p className="text-slate-500">Dishes</p>
             </div>
             <div className="rounded-lg border border-red-100 bg-white/80 px-2 py-2">
-              <p className="font-bold text-[var(--primary)]">{cart.reduce((sum, i) => sum + i.quantity, 0)}</p>
+              <p className="font-bold text-[var(--primary)]">{totalItemCount}</p>
               <p className="text-slate-500">In Cart</p>
             </div>
           </div>
@@ -115,7 +119,7 @@ export default function CustomerMenuPage() {
 
             <div className="grid grid-cols-1 gap-3">
               {visibleItems.map((item) => {
-                const quantity = getQuantity(item._id)
+                const quantity = cartQuantityByItemId.get(item._id) || 0
                 return (
                   <div key={item._id} className="lux-card p-4">
                     <div className="flex items-start justify-between gap-3">

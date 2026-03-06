@@ -6,17 +6,14 @@ const slides = [
   {
     title: 'Elevate Every Shift Into Luxury Service',
     subtitle: "Chef's Bud orchestrates menu, tables, orders, and analytics into one executive command center.",
-    tag: 'Luxury Operations',
   },
   {
     title: 'Make Data-Led Decisions in Real Time',
     subtitle: 'Track performance minute-by-minute and optimize staffing, offers, and throughput with precision.',
-    tag: 'Predictive Intelligence',
   },
   {
     title: 'From First Scan to Final Bill, Flawless',
     subtitle: 'Deliver a frictionless guest journey while your floor and kitchen run in perfect sync.',
-    tag: 'Guest Delight Engine',
   },
 ]
 
@@ -119,14 +116,14 @@ export default function LandingPage() {
             <a href="#about" className="hover:text-[var(--primary)]">
               About
             </a>
+            <Link to="/plans" className="hover:text-[var(--primary)]">
+              Pricing
+            </Link>
             <a href="#contact" className="hover:text-[var(--primary)]">
               Contact
             </a>
             <Link to="/login" className="hover:text-[var(--primary)]">
               Login
-            </Link>
-            <Link to="/register" className="rounded-xl bg-gradient-to-r from-[var(--primary-dark)] to-[var(--primary)] px-4 py-2 text-white shadow-[0_10px_20px_rgba(229,9,20,0.25)]">
-              Signup
             </Link>
           </nav>
         </div>
@@ -140,18 +137,14 @@ export default function LandingPage() {
               <a href="#about" className="rounded-lg px-2 py-2 hover:bg-red-50 hover:text-[var(--primary)]" onClick={() => setMobileNavOpen(false)}>
                 About
               </a>
+              <Link to="/plans" className="rounded-lg px-2 py-2 hover:bg-red-50 hover:text-[var(--primary)]" onClick={() => setMobileNavOpen(false)}>
+                Pricing
+              </Link>
               <a href="#contact" className="rounded-lg px-2 py-2 hover:bg-red-50 hover:text-[var(--primary)]" onClick={() => setMobileNavOpen(false)}>
                 Contact
               </a>
               <Link to="/login" className="rounded-lg px-2 py-2 hover:bg-red-50 hover:text-[var(--primary)]" onClick={() => setMobileNavOpen(false)}>
                 Login
-              </Link>
-              <Link
-                to="/register"
-                className="rounded-lg bg-[var(--primary)] px-3 py-2 text-center text-white"
-                onClick={() => setMobileNavOpen(false)}
-              >
-                Signup
               </Link>
             </div>
           </nav>
@@ -175,6 +168,11 @@ export default function LandingPage() {
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link to="/register">
                   <Button className="px-7 py-3">Start Your Premium Setup</Button>
+                </Link>
+                <Link to="/plans">
+                  <Button variant="secondary" className="px-7 py-3">
+                    View Pricing
+                  </Button>
                 </Link>
                 <a href="#app-views">
                   <Button variant="secondary" className="px-7 py-3 bg-white/10 text-white border-white/30 hover:bg-white/20 hover:text-white">

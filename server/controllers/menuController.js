@@ -12,7 +12,7 @@ async function getOwnerRestaurant(ownerId) {
 export async function getMenuBySlug(req, res, next) {
   try {
     const restaurant = await Restaurant.findOne({ slug: req.params.restaurantSlug })
-      .select('_id name slug logo address phone businessHours')
+      .select('_id name slug address phone')
       .lean()
     if (!restaurant) {
       return res.status(404).json({ message: 'Restaurant not found' })
@@ -25,7 +25,7 @@ export async function getMenuBySlug(req, res, next) {
         .lean(),
       MenuItem.find({ restaurantId: restaurant._id })
         .sort({ createdAt: -1 })
-        .select('_id categoryId name description price image available bestseller')
+        .select('_id categoryId name description price available bestseller')
         .lean(),
       Offer.find({ restaurantId: restaurant._id, active: true })
         .sort({ createdAt: -1 })
@@ -75,7 +75,7 @@ export async function createMenuItem(req, res, next) {
       return res.status(404).json({ message: 'Restaurant not found' })
     }
 
-    const { categoryId, name, description, price, image, available, bestseller } = req.body
+    const { categoryId, name, description, price, available, bestseller } = req.body
 
     const category = await Category.findOne({ _id: categoryId, restaurantId: restaurant._id }).lean()
     if (!category) {
@@ -88,7 +88,6 @@ export async function createMenuItem(req, res, next) {
       name,
       description,
       price,
-      image,
       available,
       bestseller,
     })
@@ -108,7 +107,7 @@ export async function updateMenuItem(req, res, next) {
       return res.status(404).json({ message: 'Restaurant not found' })
     }
 
-    const updates = ['categoryId', 'name', 'description', 'price', 'image', 'available', 'bestseller']
+    const updates = ['categoryId', 'name', 'description', 'price', 'available', 'bestseller']
     const patch = {}
     updates.forEach((field) => {
       if (field in req.body) {
@@ -160,13 +159,12 @@ export async function analyzeMenuWithAI(req, res, next) {
     }
 
     const menuText = typeof req.body?.menuText === 'string' ? req.body.menuText.trim() : ''
-    const menuImageDataUrl = typeof req.body?.menuImageDataUrl === 'string' ? req.body.menuImageDataUrl : ''
 
-    if (!menuText && !menuImageDataUrl) {
-      return res.status(400).json({ message: 'Upload menu text or image for AI analysis' })
+    if (!menuText) {
+      return res.status(400).json({ message: 'Provide menu text for AI analysis' })
     }
 
-    const parsedMenu = await parseMenuWithAI({ menuText, menuImageDataUrl })
+    const parsedMenu = await parseMenuWithAI({ menuText })
     return res.json(parsedMenu)
   } catch (error) {
     next(error)
@@ -204,7 +202,6 @@ export async function importMenuDraft(req, res, next) {
               price,
               available: item?.available !== false,
               bestseller: Boolean(item?.bestseller),
-              image: typeof item?.image === 'string' ? item.image : '',
             }
           })
           .filter(Boolean)
@@ -222,11 +219,18 @@ export async function importMenuDraft(req, res, next) {
       return res.status(400).json({ message: 'No valid categories/items to import' })
     }
 
-    const uniqueNames = [...new Set(normalizedCategories.map((category) => category.name.toLowerCase()))]
+    const categoryNameByLower = new Map()
+    for (const category of normalizedCategories) {
+      const nameLower = category.name.toLowerCase()
+      if (!categoryNameByLower.has(nameLower)) {
+        categoryNameByLower.set(nameLower, category.name)
+      }
+    }
+
+    const uniqueNames = [...categoryNameByLower.values()]
 
     await Category.bulkWrite(
-      uniqueNames.map((nameLower) => {
-        const originalName = normalizedCategories.find((category) => category.name.toLowerCase() === nameLower)?.name || nameLower
+      uniqueNames.map((originalName) => {
         return {
           updateOne: {
             filter: { restaurantId: restaurant._id, name: originalName },
@@ -238,7 +242,7 @@ export async function importMenuDraft(req, res, next) {
       { ordered: false },
     )
 
-    const categories = await Category.find({ restaurantId: restaurant._id, name: { $in: normalizedCategories.map((c) => c.name) } })
+    const categories = await Category.find({ restaurantId: restaurant._id, name: { $in: uniqueNames } })
       .select('_id name')
       .lean()
     const categoryIdByName = new Map(categories.map((category) => [category.name.toLowerCase(), category._id]))
@@ -255,7 +259,6 @@ export async function importMenuDraft(req, res, next) {
           name: item.name,
           description: item.description,
           price: item.price,
-          image: item.image,
           available: item.available,
           bestseller: item.bestseller,
         })

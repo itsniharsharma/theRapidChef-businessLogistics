@@ -57,7 +57,7 @@ function openRazorpay(options) {
 
 export default function PricingPage() {
   const navigate = useNavigate()
-  const { user, restaurant } = useAuth()
+  const { user, restaurant, isAuthenticated } = useAuth()
   const [activePlan, setActivePlan] = useState('')
   const [error, setError] = useState('')
 
@@ -71,6 +71,11 @@ export default function PricingPage() {
   )
 
   const activateLifetime = async () => {
+    if (!isAuthenticated) {
+      navigate('/register')
+      return
+    }
+
     setError('')
     setActivePlan('lifetime')
 
@@ -103,6 +108,11 @@ export default function PricingPage() {
   }
 
   const activateHybrid = async () => {
+    if (!isAuthenticated) {
+      navigate('/register')
+      return
+    }
+
     setError('')
     setActivePlan('hybrid')
 
@@ -154,6 +164,9 @@ export default function PricingPage() {
           <p className="mx-auto mt-3 max-w-2xl text-sm text-slate-600 md:text-base">
             Complete your payment to start using all features. Both plans include the same product access and support.
           </p>
+          {!isAuthenticated ? (
+            <p className="mt-2 text-sm text-slate-600">Create an owner account first, then choose your plan.</p>
+          ) : null}
           {error ? <p className="mt-3 text-sm font-medium text-[var(--primary)]">{error}</p> : null}
         </div>
 
