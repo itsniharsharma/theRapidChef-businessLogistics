@@ -224,3 +224,88 @@ canvas {
   border-radius: 24px;
   background: radial-gradient(circle at top right, rgba(229, 9, 20, 0.1), transparent 48%);
 }
+
+.landing-marquee-track {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: max-content;
+  will-change: transform;
+  contain: layout paint style;
+  animation: landingMarquee 26s linear infinite;
+}
+
+.landing-marquee-track:hover {
+  animation-play-state: paused;
+}
+
+.landing-marquee-track-slow {
+  animation-duration: 34s;
+}
+
+.landing-marquee-track-reverse {
+  animation-direction: reverse;
+  animation-duration: 30s;
+}
+
+.landing-marquee-chip {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  border: 1px solid #f6b5bc;
+  background: linear-gradient(180deg, #fff 0%, #fff5f6 100%);
+  color: #7f1d1d;
+  padding: 0.45rem 0.95rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  box-shadow: 0 8px 16px rgba(229, 9, 20, 0.08);
+}
+
+.landing-testimonial-card {
+  flex: 0 0 320px;
+  max-width: 320px;
+  border-radius: 1rem;
+  border: 1px solid #f2d4d8;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 1rem;
+  contain: content;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.landing-lazy-section {
+  content-visibility: auto;
+  contain-intrinsic-size: 860px;
+}
+
+@keyframes landingMarquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (max-width: 768px) {
+  .landing-marquee-track {
+    animation-duration: 36s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-marquee-track {
+    animation: none;
+    transform: none;
+  }
+
+  .landing-marquee-track:hover {
+    animation-play-state: running;
+  }
+
+  .landing-testimonial-card,
+  .landing-marquee-chip,
+  .card {
+    transition: none;
+  }
+}

@@ -4,10 +4,8 @@ import Table from '../models/Table.js'
 import MenuItem from '../models/MenuItem.js'
 
 async function ensureOwnerRestaurant(ownerId, restaurantId) {
-  const restaurant = await Restaurant.findOne({ ownerId }).lean()
-  if (!restaurant) return null
-  if (String(restaurant._id) !== restaurantId) return false
-  return restaurant
+  if (!restaurantId) return null
+  return Restaurant.findOne({ _id: restaurantId, ownerId }).lean()
 }
 
 function safePeriod(period) {
@@ -56,7 +54,6 @@ export async function getDashboard(req, res, next) {
   try {
     const ownerRestaurant = await ensureOwnerRestaurant(req.user._id, req.params.restaurantId)
     if (!ownerRestaurant) return res.status(404).json({ message: 'Restaurant not found' })
-    if (ownerRestaurant === false) return res.status(403).json({ message: 'Forbidden' })
 
     const now = new Date()
     const startDay = new Date(now)
@@ -131,7 +128,6 @@ export async function getAnalytics(req, res, next) {
   try {
     const ownerRestaurant = await ensureOwnerRestaurant(req.user._id, req.params.restaurantId)
     if (!ownerRestaurant) return res.status(404).json({ message: 'Restaurant not found' })
-    if (ownerRestaurant === false) return res.status(403).json({ message: 'Forbidden' })
 
     const now = new Date()
     const startToday = new Date(now)

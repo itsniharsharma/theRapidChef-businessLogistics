@@ -49,12 +49,6 @@ export default function LoginPage() {
         <Button className="mt-5 w-full" type="submit" disabled={loading}>
           {loading ? 'Signing in...' : 'Login'}
         </Button>
-        <p className="mt-4 text-sm text-slate-600">
-          No account?{' '}
-          <Link to="/register" className="font-semibold text-[var(--primary)]">
-            Register
-          </Link>
-        </p>
       </form>
     </div>
   )

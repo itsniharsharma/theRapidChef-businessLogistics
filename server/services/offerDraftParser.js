@@ -172,7 +172,7 @@ function parseCoupon({ prompt }) {
     return null
   }
 
-  const codeMatch = rawPrompt.match(/(?:coupon\s*code|code)\s*[:\-]?\s*([A-Za-z0-9_-]{3,})/i)
+  const codeMatch = rawPrompt.match(/(?:coupon\s*code|code)\s*[:-]?\s*([A-Za-z0-9_-]{3,})/i)
   const couponCode = String(codeMatch?.[1] || '').toUpperCase()
   if (!couponCode) {
     return {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Button from '../components/Button'
 import { offerService } from '../services/offerService'
 import { menuService } from '../services/menuService'
@@ -28,7 +28,7 @@ export default function OffersPage() {
       .join(', ')
   }, [menuItems, selectedItemIds])
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!restaurant?._id || !restaurant?.slug) return
 
     const [offerList, menuData] = await Promise.all([
@@ -38,13 +38,13 @@ export default function OffersPage() {
 
     setOffers(offerList)
     setMenuItems((menuData.items || []).filter((item) => item.available))
-  }
+  }, [restaurant?._id, restaurant?.slug])
 
   useEffect(() => {
     loadData()
       .then(() => setError(''))
       .catch((requestError) => setError(requestError?.response?.data?.message || 'Failed to load offers module data'))
-  }, [restaurant?._id, restaurant?.slug])
+  }, [loadData])
 
   const toggleSelected = (menuItemId) => {
     setSelectedItemIds((prev) => (prev.includes(menuItemId) ? prev.filter((id) => id !== menuItemId) : [...prev, menuItemId]))
