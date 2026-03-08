@@ -4,6 +4,7 @@ import Button from '../components/Button'
 import CustomerBottomNav from '../components/CustomerBottomNav'
 import { orderService } from '../services/orderService'
 import { formatCurrencyINR } from '../utils/currency'
+import { buildCustomerStatusUrl } from '../utils/customerUrl'
 
 const steps = ['Pending', 'Preparing', 'Ready', 'Served', 'Completed']
 
@@ -34,19 +35,23 @@ export default function CustomerOrderTrackingPage() {
     <div className="customer-shell p-4 pb-32">
       <header className="mb-4 flex items-center justify-between">
         <div>
-          <p className="customer-page-title text-xs font-semibold uppercase text-[var(--primary)]">Live Status</p>
-          <h1 className="text-2xl font-bold text-slate-900">Track Your Order</h1>
+          <p className="customer-page-title text-xs font-semibold uppercase">Live Status</p>
+          <h1 className="text-2xl font-bold text-amber-50">Track Your Order</h1>
         </div>
-        <Button variant="secondary" onClick={() => navigate(`/r/${restaurantSlug}/t/${tableNumber}/status`)}>
+        <Button
+          variant="secondary"
+          className="royal-button-secondary"
+          onClick={() => navigate(buildCustomerStatusUrl({ slug: restaurantSlug, tableNumber }))}
+        >
           Back to Status
         </Button>
       </header>
 
-      <div className="lux-card p-4 md:p-5">
-        <p className="text-sm text-slate-500">Order ID: {orderId}</p>
-        <p className="text-sm text-slate-500">Table {tableNumber}</p>
+      <div className="lux-card royal-reveal p-4 md:p-5">
+        <p className="text-sm royal-muted">Order ID: {orderId}</p>
+        <p className="text-sm royal-muted">Table {tableNumber}</p>
 
-        {error && <p className="mt-2 text-sm text-[var(--primary)]">{error}</p>}
+        {error && <p className="mt-2 text-sm text-amber-200">{error}</p>}
 
         <div className="mt-4 grid gap-2">
           {steps.map((step, index) => {
@@ -63,14 +68,14 @@ export default function CustomerOrderTrackingPage() {
         </div>
 
         {order && (
-          <div className="customer-glass mt-4 rounded-xl border border-red-100 bg-red-50/80 p-3">
-            <p className="text-sm text-slate-600">Current Status</p>
-            <p className="text-lg font-semibold text-[var(--primary)]">{order.orderStatus}</p>
-            <p className="mt-1 text-sm text-slate-600">Payment: {order.paymentStatus}</p>
-            <p className="mt-1 text-sm text-slate-600">Subtotal: {formatCurrencyINR(order.subtotalAmount || order.totalAmount)}</p>
-            <p className="mt-1 text-sm text-emerald-700">Discount: - {formatCurrencyINR(order.discountTotal || 0)}</p>
-            {order.couponCode ? <p className="mt-1 text-sm text-slate-600">Coupon: {order.couponCode}</p> : null}
-            <p className="mt-1 text-sm font-semibold text-slate-800">Total: {formatCurrencyINR(order.totalAmount)}</p>
+          <div className="customer-glass mt-4 rounded-xl p-3">
+            <p className="text-sm royal-muted">Current Status</p>
+            <p className="text-lg font-semibold royal-highlight">{order.orderStatus}</p>
+            <p className="mt-1 text-sm royal-muted">Payment: {order.paymentStatus}</p>
+            <p className="mt-1 text-sm royal-muted">Subtotal: {formatCurrencyINR(order.subtotalAmount || order.totalAmount)}</p>
+            <p className="mt-1 text-sm text-emerald-300">Discount: - {formatCurrencyINR(order.discountTotal || 0)}</p>
+            {order.couponCode ? <p className="mt-1 text-sm royal-muted">Coupon: {order.couponCode}</p> : null}
+            <p className="mt-1 text-sm font-semibold text-amber-50">Total: {formatCurrencyINR(order.totalAmount)}</p>
           </div>
         )}
       </div>

@@ -1,7 +1,8 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
 import { importers, warmCriticalRoutes } from './utils/routePreload'
+import { buildCustomerMenuUrl } from './utils/customerUrl'
 
 const DashboardLayout = lazy(importers.dashboardLayout)
 const LandingPage = lazy(importers.landing)
@@ -39,6 +40,12 @@ function BackToLandingLink() {
   )
 }
 
+function CustomerRouteFallback() {
+  const { restaurantSlug, tableNumber } = useParams()
+  const target = buildCustomerMenuUrl({ slug: restaurantSlug, tableNumber })
+  return <Navigate to={target} replace />
+}
+
 function App() {
   useEffect(() => {
     const idleCallback = window.requestIdleCallback || ((callback) => window.setTimeout(callback, 250))
@@ -67,6 +74,10 @@ function App() {
           <Route
             path="/r/:restaurantSlug/t/:tableNumber/order/:orderId"
             element={<CustomerOrderTrackingPage />}
+          />
+          <Route
+            path="/r/:restaurantSlug/t/:tableNumber/*"
+            element={<CustomerRouteFallback />}
           />
 
           <Route

@@ -49,33 +49,11 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
-        <div className="card p-4 xl:col-span-2">
-          <h2 className="text-lg font-semibold">Recent Orders</h2>
-          <div className="mt-3 space-y-2">
-            {(data?.recentOrders || []).map((order) => (
-              <div key={order._id} className="rounded-lg border border-slate-200 p-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <p className="max-w-[58%] truncate font-semibold">{order._id}</p>
-                  <p className="text-xs text-slate-500 md:text-sm">{new Date(order.createdAt).toLocaleTimeString()}</p>
-                </div>
-                <p className="mt-1 text-slate-600">
-                  Table {order.tableNumber} • {order.orderStatus}
-                </p>
-                <p className="font-semibold text-[var(--primary)]">{formatCurrencyINR(order.totalAmount)}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="card p-4">
-          <h2 className="text-lg font-semibold">Top Selling Items</h2>
-          <ul className="mt-3 space-y-2 text-sm text-slate-700">
-            {(data?.topSellingItems || []).map((item) => (
-              <li key={item} className="rounded-lg border border-slate-200 px-3 py-2">
-                {item}
-              </li>
-            ))}
-          </ul>
+        <div className="card p-4 xl:col-span-3">
+          <h2 className="text-lg font-semibold">Dashboard Snapshot</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            Revenue trend helps you track how daily sales move over time.
+          </p>
         </div>
       </div>
 
@@ -83,8 +61,14 @@ export default function DashboardPage() {
         <h2 className="mb-3 text-lg font-semibold">Revenue Trend</h2>
         <ResponsiveContainer width="100%" height="90%">
           <LineChart data={data?.revenueTrend || []}>
-            <XAxis dataKey="day" />
-            <YAxis />
+            <XAxis
+              dataKey="day"
+              label={{ value: 'X-Axis: Day', position: 'insideBottom', offset: -4 }}
+            />
+            <YAxis
+              tickFormatter={(value) => formatCurrencyINR(value)}
+              label={{ value: 'Y-Axis: Revenue (INR)', angle: -90, position: 'insideLeft' }}
+            />
             <Tooltip />
             <Line type="monotone" dataKey="revenue" stroke="#E50914" strokeWidth={3} />
           </LineChart>

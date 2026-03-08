@@ -1,4 +1,9 @@
 import { NavLink } from 'react-router-dom'
+import {
+  buildCustomerCheckoutUrl,
+  buildCustomerMenuUrl,
+  buildCustomerStatusUrl,
+} from '../utils/customerUrl'
 
 const baseItemClass = 'flex min-h-12 flex-col items-center justify-center rounded-xl px-3 py-2 text-xs font-semibold transition'
 
@@ -6,14 +11,14 @@ function navClassName({ isActive }) {
   return `${baseItemClass} ${
     isActive
       ? 'customer-nav-item-active border'
-      : 'text-slate-500 border border-transparent hover:text-slate-700 hover:bg-slate-50'
+      : 'text-slate-300 border border-transparent hover:text-[#f6d798] hover:bg-white/10'
   }`
 }
 
 export default function CustomerBottomNav({ restaurantSlug, tableNumber }) {
-  const menuPath = `/r/${restaurantSlug}/t/${tableNumber}`
-  const ordersPath = `/r/${restaurantSlug}/t/${tableNumber}/checkout`
-  const statusPath = `/r/${restaurantSlug}/t/${tableNumber}/status`
+  const menuPath = buildCustomerMenuUrl({ slug: restaurantSlug, tableNumber })
+  const ordersPath = buildCustomerCheckoutUrl({ slug: restaurantSlug, tableNumber })
+  const statusPath = buildCustomerStatusUrl({ slug: restaurantSlug, tableNumber })
 
   return (
     <footer className="customer-nav-shell safe-bottom fixed bottom-0 left-0 right-0 z-40 px-3 pt-2">
