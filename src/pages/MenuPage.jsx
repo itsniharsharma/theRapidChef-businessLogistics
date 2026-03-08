@@ -23,6 +23,9 @@ const newDraftItem = {
   bestseller: false,
 }
 
+const MAX_AI_IMAGES = 4
+const MAX_AI_IMAGE_SIZE_BYTES = 2 * 1024 * 1024
+
 export default function MenuPage() {
   const { restaurant } = useAuth()
   const [categories, setCategories] = useState([])
@@ -32,8 +35,7 @@ export default function MenuPage() {
   const [form, setForm] = useState(initialForm)
   const [editingId, setEditingId] = useState(null)
   const [error, setError] = useState('')
-  const [aiText, setAiText] = useState('')
-  const [aiSourceFile, setAiSourceFile] = useState('')
+  const [aiImages, setAiImages] = useState([])
   const [aiDraftCategories, setAiDraftCategories] = useState([])
   const [aiLoading, setAiLoading] = useState(false)
   const [aiImporting, setAiImporting] = useState(false)
@@ -112,19 +114,58 @@ export default function MenuPage() {
       })
   }
 
-  const onAiFileUpload = (event) => {
-    const file = event.target.files?.[0]
-    if (!file) return
+  const clearAiImages = () => {
+    setAiImages([])
+  }
 
-    setAiSourceFile(file.name)
+  const readFileAsDataUrl = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result || ''))
+      reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`))
+      reader.readAsDataURL(file)
+    })
 
-    const reader = new FileReader()
-    reader.onload = () => {
-      const result = String(reader.result || '')
-      setAiText(result)
+  const onAiImagesUpload = async (event) => {
+    const selectedFiles = Array.from(event.target.files || [])
+    event.target.value = ''
+    if (!selectedFiles.length) return
+
+    setError('')
+
+    if (aiImages.length + selectedFiles.length > MAX_AI_IMAGES) {
+      setError(`You can upload up to ${MAX_AI_IMAGES} menu images at once`)
+      return
     }
 
-    reader.readAsText(file)
+    const invalidFile = selectedFiles.find(
+      (file) => !String(file.type || '').startsWith('image/') || file.size > MAX_AI_IMAGE_SIZE_BYTES,
+    )
+
+    if (invalidFile) {
+      setError(`Only image files up to ${Math.floor(MAX_AI_IMAGE_SIZE_BYTES / (1024 * 1024))}MB are allowed`)
+      return
+    }
+
+    try {
+      const encoded = await Promise.all(
+        selectedFiles.map(async (file) => {
+          const dataUrl = await readFileAsDataUrl(file)
+          const base64Start = dataUrl.indexOf(',')
+          const dataBase64 = base64Start >= 0 ? dataUrl.slice(base64Start + 1) : ''
+
+          return {
+            name: file.name,
+            mimeType: file.type || 'image/jpeg',
+            dataBase64,
+          }
+        }),
+      )
+
+      setAiImages((prev) => [...prev, ...encoded])
+    } catch (uploadError) {
+      setError(uploadError?.message || 'Failed to process uploaded images')
+    }
   }
 
   const runAiAnalysis = async () => {
@@ -133,7 +174,7 @@ export default function MenuPage() {
 
     try {
       const payload = {
-        menuText: aiText.trim() || undefined,
+        menuImages: aiImages,
       }
       const data = await menuService.analyzeWithAI(payload)
 
@@ -216,8 +257,7 @@ export default function MenuPage() {
 
       await loadMenu()
       setAiDraftCategories([])
-      setAiText('')
-      setAiSourceFile('')
+      clearAiImages()
     } catch (requestError) {
       setError(requestError?.response?.data?.message || 'Failed to import AI-generated menu')
     } finally {
@@ -231,42 +271,55 @@ export default function MenuPage() {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold">AI Menu Import</h2>
-            <p className="text-sm text-slate-600">Upload a menu text file and auto-generate categories with priced items.</p>
+            <p className="text-sm text-slate-600">Upload menu images and auto-generate categories with priced items.</p>
           </div>
-          <Button variant="secondary" onClick={runAiAnalysis} disabled={aiLoading || !aiText.trim()}>
-            {aiLoading ? 'Analyzing...' : 'Analyze with AI'}
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={clearAiImages} disabled={aiLoading || aiImages.length === 0}>
+              Delete Uploaded Images
+            </Button>
+            <Button variant="secondary" onClick={runAiAnalysis} disabled={aiLoading || aiImages.length === 0}>
+              {aiLoading ? 'Analyzing...' : 'Analyze with AI'}
+            </Button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3">
           <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">Upload Menu File</span>
+            <span className="mb-1 block text-sm font-medium text-slate-700">Upload Menu Images</span>
             <input
               type="file"
-              accept=".txt,.csv,.md,.json"
+              accept="image/*"
+              multiple
               className="input"
-              onChange={onAiFileUpload}
+              onChange={onAiImagesUpload}
             />
-            {aiSourceFile && <p className="mt-1 text-xs text-slate-500">Loaded: {aiSourceFile}</p>}
-          </label>
-
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">Paste Menu Text (optional)</span>
-            <textarea
-              className="input"
-              rows={5}
-              value={aiText}
-              onChange={(e) => setAiText(e.target.value)}
-              placeholder="Example: Paneer Tikka - 220"
-            />
+            <p className="mt-1 text-xs text-slate-500">
+              Upload up to {MAX_AI_IMAGES} images (max {Math.floor(MAX_AI_IMAGE_SIZE_BYTES / (1024 * 1024))}MB each).
+            </p>
           </label>
         </div>
+
+        {aiImages.length > 0 ? (
+          <div className="mt-3 rounded-xl border border-slate-200 p-3">
+            <p className="text-sm font-medium text-slate-700">Uploaded Images ({aiImages.length})</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {aiImages.map((image, index) => (
+                <span key={`${image.name}-${index}`} className="rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600">
+                  {image.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         {aiDraftCategories.length > 0 && (
           <div className="mt-4 space-y-4 rounded-xl border border-slate-200 p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="font-semibold">Review & Edit AI Draft</h3>
               <div className="flex gap-2">
+                <Button variant="secondary" onClick={clearAiImages} disabled={aiImages.length === 0}>
+                  Delete Uploaded Images
+                </Button>
                 <Button variant="secondary" onClick={addDraftCategory}>
                   Add Category
                 </Button>

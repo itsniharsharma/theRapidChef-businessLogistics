@@ -10,11 +10,25 @@ import offerRoutes from './routes/offerRoutes.js'
 import analyticsRoutes from './routes/analyticsRoutes.js'
 import paymentRoutes from './routes/paymentRoutes.js'
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js'
+import { requestContext } from './middleware/requestContext.js'
+import { securityHeaders } from './middleware/securityHeaders.js'
+import { createRateLimiter } from './middleware/rateLimit.js'
 
 const app = express()
+app.disable('x-powered-by')
 app.set('trust proxy', 1)
 app.set('etag', 'strong')
 const isProduction = process.env.NODE_ENV === 'production'
+const jsonLimit = process.env.API_JSON_LIMIT || '1mb'
+const urlEncodedLimit = process.env.API_URLENCODED_LIMIT || '256kb'
+
+const globalLimiter = createRateLimiter({
+  id: 'global',
+  capacity: Number(process.env.RATE_LIMIT_GLOBAL_CAPACITY || 240),
+  windowMs: Number(process.env.RATE_LIMIT_GLOBAL_WINDOW_MS || 60_000),
+  keyFn: (req) => req.ip,
+  skip: (req) => req.path === '/api/health',
+})
 
 const originConfig = (process.env.CORS_ORIGIN || 'http://localhost:5173')
   .split(',')
@@ -47,8 +61,12 @@ const corsOptions = {
 
 app.use(cors(corsOptions))
 app.use(compression())
-app.use(express.json({ limit: '10mb' }))
-app.use(express.urlencoded({ extended: false, limit: '1mb' }))
+app.use(requestContext)
+app.use(securityHeaders)
+app.use(globalLimiter)
+app.use('/api/payments/webhook', express.raw({ type: 'application/json', limit: '1mb' }))
+app.use(express.json({ limit: jsonLimit }))
+app.use(express.urlencoded({ extended: false, limit: urlEncodedLimit }))
 
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, app: "Chef's Bud - Restaurant Revenue OS" })

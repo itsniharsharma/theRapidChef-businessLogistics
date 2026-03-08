@@ -208,11 +208,20 @@ function buildExtractionInstruction() {
   ].join('\n')
 }
 
-async function parseWithGemini({ apiKey, model, menuText }) {
+async function parseWithGemini({ apiKey, model, menuText, menuImages = [] }) {
   const parts = [{ text: buildExtractionInstruction() }]
 
   if (menuText) {
     parts.push({ text: `Menu input text:\n${menuText}` })
+  }
+
+  for (const image of menuImages) {
+    parts.push({
+      inline_data: {
+        mime_type: image.mimeType,
+        data: image.dataBase64,
+      },
+    })
   }
 
   const response = await fetch(
@@ -251,7 +260,65 @@ async function parseWithGemini({ apiKey, model, menuText }) {
   return normalizeParsedMenu(parsed)
 }
 
-async function parseWithOpenAI({ apiKey, model, menuText }) {
+async function fetchGeminiModels({ apiKey }) {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`)
+
+  if (!response.ok) {
+    const raw = await response.text()
+    const error = new Error(`Unable to list Gemini models: ${raw || response.statusText}`)
+    error.status = response.status === 429 ? 429 : 502
+    throw error
+  }
+
+  const payload = await response.json()
+  const models = Array.isArray(payload?.models) ? payload.models : []
+
+  return models
+    .filter(
+      (entry) =>
+        Array.isArray(entry?.supportedGenerationMethods) &&
+        entry.supportedGenerationMethods.includes('generateContent'),
+    )
+    .map((entry) => String(entry?.name || '').replace(/^models\//, '').trim())
+    .filter(Boolean)
+}
+
+async function resolveGeminiModel({ apiKey, preferredModel }) {
+  if (cachedGeminiModel) {
+    return cachedGeminiModel
+  }
+
+  const availableModels = await fetchGeminiModels({ apiKey })
+  if (!availableModels.length) {
+    const error = new Error('No Gemini models with generateContent support are available for this API key')
+    error.status = 502
+    throw error
+  }
+
+  if (preferredModel && availableModels.includes(preferredModel)) {
+    cachedGeminiModel = preferredModel
+    return preferredModel
+  }
+
+  const preferredOrder = [
+    preferredModel,
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-lite',
+    'gemini-1.5-flash-latest',
+    'gemini-1.5-flash',
+  ].filter(Boolean)
+
+  const candidate = preferredOrder.find((model) => availableModels.includes(model))
+  if (candidate) {
+    cachedGeminiModel = candidate
+    return candidate
+  }
+
+  cachedGeminiModel = availableModels[0]
+  return cachedGeminiModel
+}
+
+async function parseWithOpenAI({ apiKey, model, menuText, menuImages = [] }) {
   const userContent = [
     {
       type: 'text',
@@ -263,6 +330,15 @@ async function parseWithOpenAI({ apiKey, model, menuText }) {
     userContent.push({
       type: 'text',
       text: `Menu input text:\n${menuText}`,
+    })
+  }
+
+  for (const image of menuImages) {
+    userContent.push({
+      type: 'image_url',
+      image_url: {
+        url: `data:${image.mimeType};base64,${image.dataBase64}`,
+      },
     })
   }
 
@@ -304,49 +380,90 @@ async function parseWithOpenAI({ apiKey, model, menuText }) {
   return normalizeParsedMenu(parsed)
 }
 
-export async function parseMenuWithAI({ menuText }) {
+export async function parseMenuWithAI({ menuText, menuImages = [] }) {
   const geminiApiKey = process.env.GEMINI_API_KEY
   const openaiApiKey = process.env.OPENAI_API_KEY
+  const normalizedText = String(menuText || '').trim()
+  const normalizedImages = Array.isArray(menuImages)
+    ? menuImages
+        .map((image) => ({
+          mimeType: String(image?.mimeType || '').trim(),
+          dataBase64: String(image?.dataBase64 || '').trim(),
+        }))
+        .filter((image) => image.mimeType && image.dataBase64)
+    : []
 
-  if (!menuText) {
-    const error = new Error('Provide menu text to analyze')
+  if (!normalizedText && normalizedImages.length === 0) {
+    const error = new Error('Provide menu text or menu images to analyze')
     error.status = 400
     throw error
   }
 
-  if (!geminiApiKey && !openaiApiKey && menuText) {
-    return parseMenuWithHeuristics(menuText)
+  if (!geminiApiKey && !openaiApiKey) {
+    if (normalizedText) {
+      return parseMenuWithHeuristics(normalizedText)
+    }
+
+    const error = new Error('Set GEMINI_API_KEY or OPENAI_API_KEY for image-based menu analysis')
+    error.status = 500
+    throw error
   }
 
   let normalized = { categories: [] }
 
   try {
     if (geminiApiKey) {
-      const geminiModel = process.env.GEMINI_MODEL || 'gemini-1.5-flash'
-      normalized = await parseWithGemini({
+      const configuredGeminiModel = process.env.GEMINI_MODEL || 'gemini-2.0-flash'
+      let geminiModel = await resolveGeminiModel({
         apiKey: geminiApiKey,
-        model: geminiModel,
-        menuText,
+        preferredModel: configuredGeminiModel,
       })
+
+      try {
+        normalized = await parseWithGemini({
+          apiKey: geminiApiKey,
+          model: geminiModel,
+          menuText: normalizedText,
+          menuImages: normalizedImages,
+        })
+      } catch (geminiError) {
+        if (String(geminiError?.message || '').includes('NOT_FOUND')) {
+          cachedGeminiModel = ''
+          geminiModel = await resolveGeminiModel({
+            apiKey: geminiApiKey,
+            preferredModel: '',
+          })
+
+          normalized = await parseWithGemini({
+            apiKey: geminiApiKey,
+            model: geminiModel,
+            menuText: normalizedText,
+            menuImages: normalizedImages,
+          })
+        } else {
+          throw geminiError
+        }
+      }
     } else if (openaiApiKey) {
       const openaiModel = process.env.OPENAI_MODEL || 'gpt-4o-mini'
       normalized = await parseWithOpenAI({
         apiKey: openaiApiKey,
         model: openaiModel,
-        menuText,
+        menuText: normalizedText,
+        menuImages: normalizedImages,
       })
     }
   } catch (providerError) {
-    if (menuText) {
-      return parseMenuWithHeuristics(menuText)
+    if (normalizedText) {
+      return parseMenuWithHeuristics(normalizedText)
     }
 
     throw providerError
   }
 
   if (!normalized.categories.length) {
-    if (menuText) {
-      return parseMenuWithHeuristics(menuText)
+    if (normalizedText) {
+      return parseMenuWithHeuristics(normalizedText)
     }
 
     const error = new Error('AI could not extract valid menu categories/items from the uploaded content')
@@ -356,3 +473,5 @@ export async function parseMenuWithAI({ menuText }) {
 
   return normalized
 }
+
+let cachedGeminiModel = ''

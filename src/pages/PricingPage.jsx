@@ -57,7 +57,7 @@ function openRazorpay(options) {
 
 export default function PricingPage() {
   const navigate = useNavigate()
-  const { user, restaurant, isAuthenticated } = useAuth()
+  const { user, restaurant, isAuthenticated, logout } = useAuth()
   const [activePlan, setActivePlan] = useState('')
   const [error, setError] = useState('')
 
@@ -69,6 +69,11 @@ export default function PricingPage() {
     }),
     [user?.email, user?.name, restaurant?.phone],
   )
+
+  const redirectToLoginAfterPayment = () => {
+    logout()
+    navigate('/login', { replace: true })
+  }
 
   const activateLifetime = async () => {
     if (!isAuthenticated) {
@@ -99,7 +104,7 @@ export default function PricingPage() {
         ...orderResponse,
       })
 
-      navigate('/dashboard', { replace: true })
+      redirectToLoginAfterPayment()
     } catch (requestError) {
       setError(requestError?.response?.data?.message || requestError.message || 'Unable to complete payment')
     } finally {
@@ -147,7 +152,7 @@ export default function PricingPage() {
       })
 
       await paymentService.verifyHybridSubscription(subscriptionResponse)
-      navigate('/dashboard', { replace: true })
+      redirectToLoginAfterPayment()
     } catch (requestError) {
       setError(requestError?.response?.data?.message || requestError.message || 'Unable to activate hybrid plan')
     } finally {

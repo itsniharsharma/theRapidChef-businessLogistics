@@ -159,12 +159,23 @@ export async function analyzeMenuWithAI(req, res, next) {
     }
 
     const menuText = typeof req.body?.menuText === 'string' ? req.body.menuText.trim() : ''
+    const rawMenuImages = Array.isArray(req.body?.menuImages) ? req.body.menuImages : []
+    const menuImages = rawMenuImages
+      .map((image) => ({
+        mimeType: String(image?.mimeType || '').trim(),
+        dataBase64: String(image?.dataBase64 || '').trim(),
+      }))
+      .filter((image) => image.mimeType && image.dataBase64)
 
-    if (!menuText) {
-      return res.status(400).json({ message: 'Provide menu text for AI analysis' })
+    if (!menuText && menuImages.length === 0) {
+      return res.status(400).json({ message: 'Upload menu images for AI analysis' })
     }
 
-    const parsedMenu = await parseMenuWithAI({ menuText })
+    if (menuImages.length > 4) {
+      return res.status(400).json({ message: 'You can analyze up to 4 menu images at once' })
+    }
+
+    const parsedMenu = await parseMenuWithAI({ menuText, menuImages })
     return res.json(parsedMenu)
   } catch (error) {
     next(error)

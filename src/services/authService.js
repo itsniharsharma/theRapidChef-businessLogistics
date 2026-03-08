@@ -1,8 +1,14 @@
 import api from './api'
 
 export const authService = {
-  register(payload) {
-    return api.post('/auth/register', payload).then((response) => response.data)
+  initiateRegistration(payload) {
+    return api.post('/auth/register/initiate', payload).then((response) => response.data)
+  },
+  verifyRegistration(payload) {
+    return api.post('/auth/register/verify', payload).then((response) => response.data)
+  },
+  resendRegistrationCode(payload) {
+    return api.post('/auth/register/resend-code', payload).then((response) => response.data)
   },
   login(payload) {
     return api.post('/auth/login', payload).then((response) => response.data)

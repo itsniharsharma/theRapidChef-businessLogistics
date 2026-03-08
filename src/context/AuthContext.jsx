@@ -51,18 +51,26 @@ export function AuthProvider({ children }) {
     }
   }, [token])
 
-  const login = async (payload) => {
-    const result = await authService.login(payload)
+  const hydrateSession = (result) => {
     setToken(result.token)
     setUser(result.user)
     setRestaurant(result.restaurant)
   }
 
-  const register = async (payload) => {
-    const result = await authService.register(payload)
-    setToken(result.token)
-    setUser(result.user)
-    setRestaurant(result.restaurant)
+  const login = async (payload) => {
+    const result = await authService.login(payload)
+    hydrateSession(result)
+    return result
+  }
+
+  const initiateRegistration = async (payload) => {
+    return authService.initiateRegistration(payload)
+  }
+
+  const verifyRegistration = async (payload) => {
+    const result = await authService.verifyRegistration(payload)
+    hydrateSession(result)
+    return result
   }
 
   const logout = () => {
@@ -79,7 +87,8 @@ export function AuthProvider({ children }) {
       authLoading,
       isAuthenticated: Boolean(token),
       login,
-      register,
+      initiateRegistration,
+      verifyRegistration,
       logout,
       setRestaurant,
     }),

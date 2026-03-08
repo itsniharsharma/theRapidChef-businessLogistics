@@ -1,8 +1,27 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 
+function toTimestamp(value) {
+  const ts = value ? new Date(value).getTime() : NaN
+  return Number.isFinite(ts) ? ts : 0
+}
+
+function hasBillingAccess(billing) {
+  if (!billing) {
+    return false
+  }
+
+  if (billing.status === 'active') {
+    return true
+  }
+
+  const now = Date.now()
+  const graceWindowEnds = Math.max(toTimestamp(billing.graceEndsAt), toTimestamp(billing.currentPeriodEnd))
+  return ['grace_period', 'past_due'].includes(billing.status) && graceWindowEnds > now
+}
+
 export default function ProtectedRoute({ children }) {
-  const { isAuthenticated, authLoading } = useAuth()
+  const { isAuthenticated, authLoading, user } = useAuth()
 
   if (authLoading) {
     return <div className="p-6 text-sm text-slate-500">Loading...</div>
@@ -10,6 +29,10 @@ export default function ProtectedRoute({ children }) {
 
   if (!isAuthenticated) {
     return <Navigate to="/" replace />
+  }
+
+  if (!hasBillingAccess(user?.billing)) {
+    return <Navigate to="/plans" replace />
   }
 
   return children

@@ -10,26 +10,37 @@ export async function requireAuth(req, res, next) {
       return res.status(401).json({ message: 'Unauthorized' })
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-    // Fast path: tokens now carry user context, avoiding a DB read on every request.
-    if (decoded?.userId && decoded?.name && decoded?.email && decoded?.role) {
-      req.user = {
-        _id: decoded.userId,
-        name: decoded.name,
-        email: decoded.email,
-        role: decoded.role,
-      }
-      return next()
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({ message: 'JWT secret is not configured' })
     }
 
-    // Backward compatibility for older tokens that only have userId.
-    const user = await User.findById(decoded.userId).lean()
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    if (!decoded?.userId) {
+      return res.status(401).json({ message: 'Unauthorized' })
+    }
+
+    const user = await User.findById(decoded.userId)
+      .select('_id name email role emailVerified tokenVersion billing')
+      .lean()
+
     if (!user) {
       return res.status(401).json({ message: 'Invalid token' })
     }
 
-    req.user = user
+    const tokenVersion = Number(decoded?.tokenVersion || 0)
+    const currentTokenVersion = Number(user?.tokenVersion || 0)
+    if (tokenVersion !== currentTokenVersion) {
+      return res.status(401).json({ message: 'Session expired. Please log in again.' })
+    }
+
+    req.user = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      emailVerified: user.emailVerified,
+      billing: user.billing,
+    }
     next()
   } catch {
     return res.status(401).json({ message: 'Unauthorized' })

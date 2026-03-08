@@ -35,8 +35,27 @@ export function getRazorpayKeyId() {
 
 export function verifySignature({ body, signature }) {
   const keySecret = process.env.RAZORPAY_KEY_SECRET
+  if (!keySecret) {
+    return false
+  }
   const expected = crypto.createHmac('sha256', keySecret).update(body).digest('hex')
   return expected === signature
+}
+
+export function verifyWebhookSignature({ rawBody, signature }) {
+  const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || process.env.RAZORPAY_KEY_SECRET
+  if (!webhookSecret || !signature) {
+    return false
+  }
+
+  const expected = crypto.createHmac('sha256', webhookSecret).update(rawBody).digest('hex')
+  const received = String(signature).trim()
+
+  if (expected.length !== received.length) {
+    return false
+  }
+
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(received))
 }
 
 export function createOrder(payload) {

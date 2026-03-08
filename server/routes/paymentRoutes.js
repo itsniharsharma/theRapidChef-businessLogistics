@@ -4,15 +4,34 @@ import { requireAuth } from '../middleware/auth.js'
 import {
   createCheckout,
   createHybridSubscription,
+  handleRazorpayWebhook,
   verifyHybridSubscription,
   verifyOrder,
 } from '../controllers/paymentController.js'
+import { createRateLimiter } from '../middleware/rateLimit.js'
 
 const router = Router()
+
+const webhookLimiter = createRateLimiter({
+  id: 'payments-webhook',
+  capacity: Number(process.env.RATE_LIMIT_WEBHOOK_CAPACITY || 180),
+  windowMs: Number(process.env.RATE_LIMIT_WEBHOOK_WINDOW_MS || 60_000),
+  keyFn: (req) => req.ip,
+})
+
+const paymentLimiter = createRateLimiter({
+  id: 'payments-auth',
+  capacity: Number(process.env.RATE_LIMIT_PAYMENTS_CAPACITY || 60),
+  windowMs: Number(process.env.RATE_LIMIT_PAYMENTS_WINDOW_MS || 60_000),
+  keyFn: (req) => req.user?._id || req.ip,
+})
+
+router.post('/webhook', webhookLimiter, handleRazorpayWebhook)
 
 router.post(
   '/checkout',
   requireAuth,
+  paymentLimiter,
   [body('plan').isIn(['lifetime', 'hybrid']).withMessage('plan must be lifetime or hybrid')],
   createCheckout,
 )
@@ -20,6 +39,7 @@ router.post(
 router.post(
   '/checkout/verify',
   requireAuth,
+  paymentLimiter,
   [
     body('plan').isIn(['lifetime', 'hybrid']).withMessage('plan must be lifetime or hybrid'),
     body('razorpay_order_id').notEmpty().withMessage('razorpay_order_id is required'),
@@ -29,11 +49,12 @@ router.post(
   verifyOrder,
 )
 
-router.post('/subscription/hybrid', requireAuth, createHybridSubscription)
+router.post('/subscription/hybrid', requireAuth, paymentLimiter, createHybridSubscription)
 
 router.post(
   '/subscription/hybrid/verify',
   requireAuth,
+  paymentLimiter,
   [
     body('razorpay_payment_id').notEmpty().withMessage('razorpay_payment_id is required'),
     body('razorpay_subscription_id').notEmpty().withMessage('razorpay_subscription_id is required'),

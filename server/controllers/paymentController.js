@@ -1,4 +1,5 @@
 import User from '../models/User.js'
+import BillingEvent from '../models/BillingEvent.js'
 import { validationResult } from 'express-validator'
 import {
   createCustomer,
@@ -6,10 +7,88 @@ import {
   createSubscription,
   getRazorpayKeyId,
   verifySignature,
+  verifyWebhookSignature,
 } from '../services/razorpayService.js'
+import { sendBillingStatusEmail } from '../services/emailService.js'
 
 const LIFETIME_AMOUNT_PAISE = 2500000
 const HYBRID_SETUP_AMOUNT_PAISE = 1000000
+const BILLING_GRACE_DAYS = Number(process.env.BILLING_GRACE_DAYS || 3)
+
+function toDateFromEpochSeconds(value) {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return null
+  }
+  return new Date(numeric * 1000)
+}
+
+function extractSubscriptionContext(payload = {}) {
+  const subscription = payload?.subscription?.entity || null
+  const invoice = payload?.invoice?.entity || null
+  const payment = payload?.payment?.entity || null
+
+  const subscriptionId =
+    subscription?.id || invoice?.subscription_id || payment?.subscription_id || payment?.notes?.subscription_id || ''
+
+  const currentPeriodEnd =
+    toDateFromEpochSeconds(subscription?.current_end) || toDateFromEpochSeconds(invoice?.period_end) || null
+
+  const cancelledAt =
+    toDateFromEpochSeconds(subscription?.cancelled_at) ||
+    toDateFromEpochSeconds(subscription?.ended_at) ||
+    toDateFromEpochSeconds(invoice?.ended_at) ||
+    null
+
+  return {
+    subscriptionId,
+    currentPeriodEnd,
+    cancelledAt,
+    entityStatus: subscription?.status || invoice?.status || payment?.status || '',
+  }
+}
+
+function computeBillingPatch(eventType, context) {
+  const now = Date.now()
+  const fallbackGraceDate = new Date(now + BILLING_GRACE_DAYS * 24 * 60 * 60 * 1000)
+  const currentPeriodEnd = context.currentPeriodEnd
+
+  const patch = {
+    'billing.lastBillingEventAt': new Date(now),
+    'billing.currentPeriodEnd': currentPeriodEnd,
+  }
+
+  if (eventType === 'subscription.cancelled' || eventType === 'subscription.paused' || eventType === 'subscription.completed') {
+    const accessEnd = currentPeriodEnd && currentPeriodEnd.getTime() > now ? currentPeriodEnd : null
+    patch['billing.status'] = accessEnd ? 'grace_period' : 'cancelled'
+    patch['billing.graceEndsAt'] = accessEnd
+    patch['billing.cancelledAt'] = context.cancelledAt || new Date(now)
+    return patch
+  }
+
+  if (eventType === 'subscription.resumed' || eventType === 'invoice.paid' || eventType === 'payment.captured') {
+    patch['billing.status'] = 'active'
+    patch['billing.graceEndsAt'] = null
+    patch['billing.cancelledAt'] = null
+    return patch
+  }
+
+  if (eventType === 'invoice.payment_failed' || eventType === 'payment.failed') {
+    const graceEndsAt =
+      currentPeriodEnd && currentPeriodEnd.getTime() > now
+        ? currentPeriodEnd
+        : fallbackGraceDate
+    patch['billing.status'] = 'past_due'
+    patch['billing.graceEndsAt'] = graceEndsAt
+    return patch
+  }
+
+  return null
+}
+
+function shouldNotifyStatus(nextStatus) {
+  return ['grace_period', 'past_due', 'cancelled', 'active'].includes(nextStatus)
+}
 
 function buildReceipt(userId, type) {
   return `${type}_${String(userId).slice(-8)}_${Date.now()}`
@@ -211,6 +290,122 @@ export async function verifyHybridSubscription(req, res, next) {
       billing: user.billing,
     })
   } catch (error) {
+    next(error)
+  }
+}
+
+export async function handleRazorpayWebhook(req, res, next) {
+  try {
+    const signature = req.get('x-razorpay-signature')
+    const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.from(JSON.stringify(req.body || {}))
+
+    const isSignatureValid = verifyWebhookSignature({ rawBody, signature })
+    if (!isSignatureValid) {
+      return res.status(401).json({ message: 'Invalid webhook signature' })
+    }
+
+    const webhook = JSON.parse(rawBody.toString('utf8'))
+    const eventType = String(webhook?.event || '').trim()
+    const payload = webhook?.payload || {}
+    const context = extractSubscriptionContext(payload)
+
+    const providerEventId =
+      String(req.get('x-razorpay-event-id') || '').trim() ||
+      `${eventType}:${context.subscriptionId || 'unknown'}:${String(webhook?.created_at || Date.now())}`
+
+    try {
+      await BillingEvent.create({
+        provider: 'razorpay',
+        providerEventId,
+        eventType,
+        subscriptionId: context.subscriptionId,
+        metadata: {
+          createdAtEpoch: Number(webhook?.created_at) || null,
+          entityStatus: context.entityStatus,
+        },
+      })
+    } catch (error) {
+      if (error?.code === 11000) {
+        return res.status(200).json({ received: true, duplicate: true })
+      }
+      throw error
+    }
+
+    const patch = computeBillingPatch(eventType, context)
+    if (!patch || !context.subscriptionId) {
+      await BillingEvent.updateOne(
+        { provider: 'razorpay', providerEventId },
+        {
+          $set: {
+            processingStatus: 'ignored',
+            processedAt: new Date(),
+            failureReason: context.subscriptionId ? '' : 'subscription id missing in webhook payload',
+          },
+        },
+      )
+      return res.status(200).json({ received: true, ignored: true })
+    }
+
+    const user = await User.findOneAndUpdate(
+      { 'billing.razorpaySubscriptionId': context.subscriptionId },
+      { $set: patch },
+      { new: true, projection: { email: 1, name: 1, billing: 1 } },
+    ).lean()
+
+    if (!user) {
+      await BillingEvent.updateOne(
+        { provider: 'razorpay', providerEventId },
+        {
+          $set: {
+            processingStatus: 'ignored',
+            processedAt: new Date(),
+            failureReason: 'no matching user for subscription id',
+          },
+        },
+      )
+      return res.status(200).json({ received: true, ignored: true })
+    }
+
+    await BillingEvent.updateOne(
+      { provider: 'razorpay', providerEventId },
+      {
+        $set: {
+          processingStatus: 'processed',
+          processedAt: new Date(),
+          userId: user._id,
+          failureReason: '',
+        },
+      },
+    )
+
+    if (shouldNotifyStatus(user?.billing?.status)) {
+      void sendBillingStatusEmail({
+        to: user.email,
+        name: user.name,
+        status: user.billing.status,
+        planType: user.billing.planType,
+        graceEndsAt: user.billing.graceEndsAt,
+        currentPeriodEnd: user.billing.currentPeriodEnd,
+      }).catch((mailError) => {
+        console.error('Billing status email failed', mailError)
+      })
+    }
+
+    return res.status(200).json({ received: true, processed: true })
+  } catch (error) {
+    const providerEventId = String(req.get('x-razorpay-event-id') || '').trim()
+    if (providerEventId) {
+      await BillingEvent.updateOne(
+        { provider: 'razorpay', providerEventId },
+        {
+          $set: {
+            processingStatus: 'failed',
+            processedAt: new Date(),
+            failureReason: error.message || 'webhook processing failed',
+          },
+        },
+      )
+    }
     next(error)
   }
 }
