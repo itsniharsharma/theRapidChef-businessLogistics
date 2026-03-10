@@ -348,8 +348,8 @@ export default function LandingPage() {
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4 py-8 text-sm text-slate-600 md:flex-row md:items-center md:justify-between md:px-6">
           <p>© {new Date().getFullYear()} Chef's Bud - Premium Restaurant Revenue OS</p>
           <div className="flex gap-5">
-            <a href="mailto:itsnihars@gmail.com" className="hover:text-[var(--primary)]">
-              itsnihars@gmail.com
+            <a href="mailto:chefsbudofficial@gmail.com" className="hover:text-[var(--primary)]">
+              chefsbudofficial@gmail.com
             </a>
             <a href="tel:+919815454626" className="hover:text-[var(--primary)]">
               +91 9815454626

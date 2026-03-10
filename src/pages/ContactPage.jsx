@@ -5,8 +5,8 @@ import MarketingHeader from '../components/MarketingHeader'
 const channels = [
   {
     title: 'Email',
-    value: 'itsnihars@gmail.com',
-    href: 'mailto:itsnihars@gmail.com',
+    value: 'chefsbudofficial@gmail.com',
+    href: 'mailto:chefsbudofficial@gmail.com',
   },
   {
     title: 'Phone',
