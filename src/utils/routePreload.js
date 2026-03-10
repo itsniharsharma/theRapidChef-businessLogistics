@@ -1,6 +1,9 @@
 export const importers = {
   dashboardLayout: () => import('../layouts/DashboardLayout'),
   landing: () => import('../pages/LandingPage'),
+  platform: () => import('../pages/PlatformPage'),
+  trust: () => import('../pages/TrustPage'),
+  contact: () => import('../pages/ContactPage'),
   login: () => import('../pages/LoginPage'),
   register: () => import('../pages/RegisterPage'),
   pricing: () => import('../pages/PricingPage'),

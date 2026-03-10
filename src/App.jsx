@@ -6,6 +6,9 @@ import { buildCustomerMenuUrl } from './utils/customerUrl'
 
 const DashboardLayout = lazy(importers.dashboardLayout)
 const LandingPage = lazy(importers.landing)
+const PlatformPage = lazy(importers.platform)
+const TrustPage = lazy(importers.trust)
+const ContactPage = lazy(importers.contact)
 const LoginPage = lazy(importers.login)
 const RegisterPage = lazy(importers.register)
 const PricingPage = lazy(importers.pricing)
@@ -25,8 +28,10 @@ const CustomerOrderTrackingPage = lazy(importers.customerTracking)
 function BackToLandingLink() {
   const location = useLocation()
   const isCustomerRoute = location.pathname.startsWith('/r/')
+  const marketingRoutes = ['/overview', '/platform', '/plans', '/pricing', '/trust', '/contact', '/register', '/login']
+  const isMarketingRoute = marketingRoutes.includes(location.pathname)
 
-  if (location.pathname === '/' || isCustomerRoute) {
+  if (location.pathname === '/' || isCustomerRoute || isMarketingRoute) {
     return null
   }
 
@@ -63,7 +68,11 @@ function App() {
       <BackToLandingLink />
       <Suspense fallback={<div className="p-6 text-sm text-slate-500">Loading...</div>}>
         <Routes>
-          <Route path="/" element={<LandingPage />} />
+          <Route path="/" element={<Navigate to="/overview" replace />} />
+          <Route path="/overview" element={<LandingPage />} />
+          <Route path="/platform" element={<PlatformPage />} />
+          <Route path="/trust" element={<TrustPage />} />
+          <Route path="/contact" element={<ContactPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/plans" element={<PricingPage />} />

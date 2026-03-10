@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Button from '../components/Button'
+import MarketingHeader from '../components/MarketingHeader'
 import { useAuth } from '../hooks/useAuth'
 import { paymentService } from '../services/paymentService'
 
@@ -150,8 +151,10 @@ export default function PricingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-rose-50 px-4 py-10">
-      <div className="mx-auto w-full max-w-5xl">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-rose-50">
+      <MarketingHeader />
+
+      <div className="mx-auto w-full max-w-5xl px-4 py-10">
         <div className="mb-8 text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-rose-600">Choose Your Plan</p>
           <h1 className="mt-2 text-3xl font-bold text-slate-900 md:text-4xl">Unlock Chef&apos;s Bud for your business</h1>

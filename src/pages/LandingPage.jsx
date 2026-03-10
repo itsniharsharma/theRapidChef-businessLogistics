@@ -1,6 +1,6 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import Button from '../components/Button'
+import MarketingHeader from '../components/MarketingHeader'
 
 const heroStories = [
   'Command menu, tables, live orders, and analytics from one elegant control room.',
@@ -127,68 +127,9 @@ const faqItems = [
 ]
 
 export default function LandingPage() {
-  const [mobileNavOpen, setMobileNavOpen] = useState(false)
-
   return (
     <div className="min-h-screen bg-[#f8f8fb] text-slate-900">
-      <header className="sticky top-0 z-40 border-b border-red-100/70 bg-white/92 backdrop-blur-xl">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3 md:px-6">
-          <Link to="/" className="text-2xl font-extrabold text-[var(--primary)]">
-            Chef's Bud
-          </Link>
-          <button
-            className="rounded-lg border border-red-100 px-3 py-2 text-sm font-semibold text-slate-700 md:hidden"
-            onClick={() => setMobileNavOpen((prev) => !prev)}
-          >
-            {mobileNavOpen ? 'Close' : 'Menu'}
-          </button>
-          <nav className="hidden items-center gap-6 text-sm font-semibold text-slate-700 md:flex">
-            <a href="#home" className="hover:text-[var(--primary)]">
-              Overview
-            </a>
-            <a href="#platform" className="hover:text-[var(--primary)]">
-              Platform
-            </a>
-            <Link to="/plans" className="hover:text-[var(--primary)]">
-              Pricing
-            </Link>
-            <a href="#trust" className="hover:text-[var(--primary)]">
-              Trust
-            </a>
-            <a href="#contact" className="hover:text-[var(--primary)]">
-              Contact
-            </a>
-            <Link to="/register" className="hover:text-[var(--primary)]">
-              Sign Up
-            </Link>
-          </nav>
-        </div>
-
-        {mobileNavOpen && (
-          <nav className="border-t border-red-100 bg-white px-4 py-3 md:hidden">
-            <div className="flex flex-col gap-2 text-sm font-semibold text-slate-700">
-              <a href="#home" className="rounded-lg px-2 py-2 hover:bg-red-50 hover:text-[var(--primary)]" onClick={() => setMobileNavOpen(false)}>
-                Overview
-              </a>
-              <a href="#platform" className="rounded-lg px-2 py-2 hover:bg-red-50 hover:text-[var(--primary)]" onClick={() => setMobileNavOpen(false)}>
-                Platform
-              </a>
-              <Link to="/plans" className="rounded-lg px-2 py-2 hover:bg-red-50 hover:text-[var(--primary)]" onClick={() => setMobileNavOpen(false)}>
-                Pricing
-              </Link>
-              <a href="#trust" className="rounded-lg px-2 py-2 hover:bg-red-50 hover:text-[var(--primary)]" onClick={() => setMobileNavOpen(false)}>
-                Trust
-              </a>
-              <a href="#contact" className="rounded-lg px-2 py-2 hover:bg-red-50 hover:text-[var(--primary)]" onClick={() => setMobileNavOpen(false)}>
-                Contact
-              </a>
-              <Link to="/register" className="rounded-lg px-2 py-2 hover:bg-red-50 hover:text-[var(--primary)]" onClick={() => setMobileNavOpen(false)}>
-                Sign Up
-              </Link>
-            </div>
-          </nav>
-        )}
-      </header>
+      <MarketingHeader />
 
       <main id="home" className="mx-auto w-full max-w-7xl px-4 py-8 md:px-6 md:py-12">
         <section className="relative overflow-hidden rounded-3xl border border-red-100 bg-gradient-to-br from-slate-950 via-slate-900 to-[#0f172a] p-6 text-white shadow-[0_24px_60px_rgba(2,6,23,0.35)] md:p-10">
@@ -215,11 +156,11 @@ export default function LandingPage() {
                 <Link to="/register">
                   <Button variant="secondary" className="px-7 py-3">Owner Sign Up</Button>
                 </Link>
-                <a href="#app-views">
+                <Link to="/platform">
                   <Button variant="secondary" className="px-7 py-3 bg-white/10 text-white border-white/30 hover:bg-white/20 hover:text-white">
                     Watch Platform Journey
                   </Button>
-                </a>
+                </Link>
               </div>
 
               <div className="mt-7 grid grid-cols-2 gap-3 text-xs md:grid-cols-4">
