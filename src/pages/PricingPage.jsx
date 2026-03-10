@@ -38,20 +38,38 @@ function loadRazorpayCheckoutScript() {
 
 function openRazorpay(options) {
   return new Promise((resolve, reject) => {
+    let settled = false
+
     const checkout = new window.Razorpay({
       ...options,
       modal: {
-        ondismiss: () => reject(new Error('Checkout cancelled')),
+        ondismiss: () => {
+          if (settled) return
+          settled = true
+          reject(new Error('Checkout cancelled'))
+        },
       },
-      handler: (response) => resolve(response),
+      handler: (response) => {
+        if (settled) return
+        settled = true
+        resolve(response)
+      },
     })
 
     checkout.on('payment.failed', (event) => {
+      if (settled) return
+      settled = true
       const reason = event?.error?.description || 'Payment failed'
       reject(new Error(reason))
     })
 
-    checkout.open()
+    try {
+      checkout.open()
+    } catch (error) {
+      if (settled) return
+      settled = true
+      reject(error)
+    }
   })
 }
 
@@ -73,43 +91,6 @@ export default function PricingPage() {
   const redirectToLoginAfterPayment = () => {
     logout()
     navigate('/login', { replace: true })
-  }
-
-  const activateLifetime = async () => {
-    if (!isAuthenticated) {
-      navigate('/register')
-      return
-    }
-
-    setError('')
-    setActivePlan('lifetime')
-
-    try {
-      await loadRazorpayCheckoutScript()
-      const checkoutData = await paymentService.createCheckout('lifetime')
-
-      const orderResponse = await openRazorpay({
-        key: checkoutData.keyId,
-        amount: checkoutData.amount,
-        currency: checkoutData.currency,
-        name: "Chef's Bud",
-        description: 'Lifetime access - one-time payment',
-        order_id: checkoutData.orderId,
-        prefill,
-        theme: { color: '#e50914' },
-      })
-
-      await paymentService.verifyCheckout({
-        plan: 'lifetime',
-        ...orderResponse,
-      })
-
-      redirectToLoginAfterPayment()
-    } catch (requestError) {
-      setError(requestError?.response?.data?.message || requestError.message || 'Unable to complete payment')
-    } finally {
-      setActivePlan('')
-    }
   }
 
   const activateHybrid = async () => {
@@ -148,13 +129,21 @@ export default function PricingPage() {
         name: "Chef's Bud",
         description: 'Hybrid plan - Rs 250 monthly auto-payment',
         prefill,
+        retry: {
+          enabled: true,
+        },
         theme: { color: '#e50914' },
       })
 
       await paymentService.verifyHybridSubscription(subscriptionResponse)
       redirectToLoginAfterPayment()
     } catch (requestError) {
-      setError(requestError?.response?.data?.message || requestError.message || 'Unable to activate hybrid plan')
+      const message = requestError?.response?.data?.message || requestError.message || 'Unable to activate hybrid plan'
+      if (message === 'Checkout cancelled') {
+        setError('Checkout was closed before completion. Please finish both steps: setup payment and monthly autopay authorization.')
+      } else {
+        setError(message)
+      }
     } finally {
       setActivePlan('')
     }
@@ -175,33 +164,15 @@ export default function PricingPage() {
           {error ? <p className="mt-3 text-sm font-medium text-[var(--primary)]">{error}</p> : null}
         </div>
 
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <section className="card flex h-full flex-col p-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">One-Time</p>
-            <h2 className="mt-2 text-2xl font-bold text-slate-900">Rs 25,000</h2>
-            <p className="mt-1 text-sm text-slate-600">Lifetime access with no recurring monthly charge.</p>
-
-            <ul className="mt-5 space-y-2 text-sm text-slate-700">
-              {features.map((feature) => (
-                <li key={`lifetime-${feature}`} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                  {feature}
-                </li>
-              ))}
-            </ul>
-
-            <Button className="mt-6 w-full" disabled={activePlan !== ''} onClick={activateLifetime}>
-              {activePlan === 'lifetime' ? 'Processing...' : 'Pay Rs 25,000'}
-            </Button>
-          </section>
-
-          <section className="card relative flex h-full flex-col border-rose-200 p-6">
+        <div className="grid grid-cols-1 gap-5">
+          <section className="card relative mx-auto flex h-full w-full max-w-2xl flex-col border-rose-200 p-6">
             <span className="absolute right-4 top-4 rounded-full bg-rose-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-rose-700">
-              Auto-Pay
+              Required Auto-Pay
             </span>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Hybrid Plan</p>
-            <h2 className="mt-2 text-2xl font-bold text-slate-900">Rs 10,000 + Rs 250/month</h2>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Business Plan</p>
+            <h2 className="mt-2 text-2xl font-bold text-slate-900">Rs 10,000 + Rs 399/month</h2>
             <p className="mt-1 text-sm text-slate-600">
-              One-time setup payment now, then monthly auto-debit using Razorpay subscription.
+              Step 1: pay Rs 10,000 setup. Step 2: approve Rs 399 monthly autopay. Access is enabled only after both steps.
             </p>
 
             <ul className="mt-5 space-y-2 text-sm text-slate-700">
@@ -213,7 +184,7 @@ export default function PricingPage() {
             </ul>
 
             <Button className="mt-6 w-full" disabled={activePlan !== ''} onClick={activateHybrid}>
-              {activePlan === 'hybrid' ? 'Processing...' : 'Start Auto-Pay Plan'}
+              {activePlan === 'hybrid' ? 'Processing...' : 'Pay Rs 10,000 and Enable Rs 399/month Autopay'}
             </Button>
           </section>
         </div>

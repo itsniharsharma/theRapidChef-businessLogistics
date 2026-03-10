@@ -24,8 +24,47 @@ function getRazorpayAuth() {
 
 async function razorpayPost(path, payload) {
   const { auth } = getRazorpayAuth()
-  const response = await axios.post(`${RAZORPAY_API_BASE}${path}`, payload, { auth })
-  return response.data
+  try {
+    const response = await axios.post(`${RAZORPAY_API_BASE}${path}`, payload, { auth })
+    return response.data
+  } catch (error) {
+    const statusCode = Number(error?.response?.status || error?.status || 500)
+    const providerMessage =
+      error?.response?.data?.error?.description ||
+      error?.response?.data?.error?.reason ||
+      error?.response?.data?.error?.code ||
+      error?.response?.data?.message ||
+      error?.message ||
+      'Razorpay request failed'
+
+    const normalized = new Error(providerMessage)
+    normalized.statusCode = statusCode
+    throw normalized
+  }
+}
+
+async function razorpayGet(path, params = {}) {
+  const { auth } = getRazorpayAuth()
+  try {
+    const response = await axios.get(`${RAZORPAY_API_BASE}${path}`, {
+      auth,
+      params,
+    })
+    return response.data
+  } catch (error) {
+    const statusCode = Number(error?.response?.status || error?.status || 500)
+    const providerMessage =
+      error?.response?.data?.error?.description ||
+      error?.response?.data?.error?.reason ||
+      error?.response?.data?.error?.code ||
+      error?.response?.data?.message ||
+      error?.message ||
+      'Razorpay request failed'
+
+    const normalized = new Error(providerMessage)
+    normalized.statusCode = statusCode
+    throw normalized
+  }
 }
 
 export function getRazorpayKeyId() {
@@ -64,6 +103,10 @@ export function createOrder(payload) {
 
 export function createCustomer(payload) {
   return razorpayPost('/customers', payload)
+}
+
+export function listCustomers(params = {}) {
+  return razorpayGet('/customers', params)
 }
 
 export function createSubscription(payload) {

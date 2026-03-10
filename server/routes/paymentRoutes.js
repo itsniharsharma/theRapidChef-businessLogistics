@@ -32,7 +32,7 @@ router.post(
   '/checkout',
   requireAuth,
   paymentLimiter,
-  [body('plan').isIn(['lifetime', 'hybrid']).withMessage('plan must be lifetime or hybrid')],
+  [body('plan').isIn(['hybrid']).withMessage('plan must be hybrid')],
   createCheckout,
 )
 
@@ -41,7 +41,7 @@ router.post(
   requireAuth,
   paymentLimiter,
   [
-    body('plan').isIn(['lifetime', 'hybrid']).withMessage('plan must be lifetime or hybrid'),
+    body('plan').isIn(['hybrid']).withMessage('plan must be hybrid'),
     body('razorpay_order_id').notEmpty().withMessage('razorpay_order_id is required'),
     body('razorpay_payment_id').notEmpty().withMessage('razorpay_payment_id is required'),
     body('razorpay_signature').notEmpty().withMessage('razorpay_signature is required'),

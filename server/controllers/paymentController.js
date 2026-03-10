@@ -6,14 +6,43 @@ import {
   createOrder,
   createSubscription,
   getRazorpayKeyId,
+  listCustomers,
   verifySignature,
   verifyWebhookSignature,
 } from '../services/razorpayService.js'
 import { sendBillingStatusEmail } from '../services/emailService.js'
 
-const LIFETIME_AMOUNT_PAISE = 2500000
 const HYBRID_SETUP_AMOUNT_PAISE = 1000000
 const BILLING_GRACE_DAYS = Number(process.env.BILLING_GRACE_DAYS || 3)
+const HYBRID_TOTAL_COUNT = Number(process.env.RAZORPAY_HYBRID_TOTAL_COUNT || 60)
+const CUSTOMER_CACHE_MAX_ENTRIES = Number(process.env.RAZORPAY_CUSTOMER_CACHE_MAX || 500)
+const customerIdByEmailCache = new Map()
+
+function normalizeEmail(value) {
+  return String(value || '').trim().toLowerCase()
+}
+
+function getCachedCustomerIdByEmail(email) {
+  const key = normalizeEmail(email)
+  if (!key) return ''
+  return customerIdByEmailCache.get(key) || ''
+}
+
+function setCachedCustomerIdByEmail(email, customerId) {
+  const key = normalizeEmail(email)
+  const id = String(customerId || '').trim()
+  if (!key || !id) return
+
+  // Bound map size to avoid unbounded memory growth.
+  if (customerIdByEmailCache.size >= CUSTOMER_CACHE_MAX_ENTRIES) {
+    const firstKey = customerIdByEmailCache.keys().next().value
+    if (firstKey) {
+      customerIdByEmailCache.delete(firstKey)
+    }
+  }
+
+  customerIdByEmailCache.set(key, id)
+}
 
 function toDateFromEpochSeconds(value) {
   const numeric = Number(value)
@@ -94,6 +123,26 @@ function buildReceipt(userId, type) {
   return `${type}_${String(userId).slice(-8)}_${Date.now()}`
 }
 
+async function resolveExistingCustomerByEmail(email) {
+  const normalizedEmail = normalizeEmail(email)
+  if (!normalizedEmail) {
+    return null
+  }
+
+  const cachedId = getCachedCustomerIdByEmail(normalizedEmail)
+  if (cachedId) {
+    return { id: cachedId, email: normalizedEmail }
+  }
+
+  const response = await listCustomers({ count: 100 })
+  const items = Array.isArray(response?.items) ? response.items : []
+  const found = items.find((item) => normalizeEmail(item?.email) === normalizedEmail) || null
+  if (found?.id) {
+    setCachedCustomerIdByEmail(normalizedEmail, found.id)
+  }
+  return found
+}
+
 async function getUserOrThrow(userId) {
   const user = await User.findById(userId)
   if (!user) {
@@ -112,11 +161,11 @@ export async function createCheckout(req, res, next) {
     }
 
     const { plan } = req.body
-    if (!['lifetime', 'hybrid'].includes(plan)) {
-      return res.status(400).json({ message: 'Invalid plan selected' })
+    if (plan !== 'hybrid') {
+      return res.status(400).json({ message: 'Only hybrid plan is supported' })
     }
 
-    const amount = plan === 'lifetime' ? LIFETIME_AMOUNT_PAISE : HYBRID_SETUP_AMOUNT_PAISE
+    const amount = HYBRID_SETUP_AMOUNT_PAISE
     const order = await createOrder({
       amount,
       currency: 'INR',
@@ -148,7 +197,7 @@ export async function verifyOrder(req, res, next) {
 
     const { plan, razorpay_order_id: orderId, razorpay_payment_id: paymentId, razorpay_signature: signature } = req.body
 
-    if (!['lifetime', 'hybrid'].includes(plan) || !orderId || !paymentId || !signature) {
+    if (plan !== 'hybrid' || !orderId || !paymentId || !signature) {
       return res.status(400).json({ message: 'Payment verification payload is incomplete' })
     }
 
@@ -162,21 +211,11 @@ export async function verifyOrder(req, res, next) {
     }
 
     const user = await getUserOrThrow(req.user._id)
-    if (plan === 'lifetime') {
-      user.billing = {
-        ...user.billing,
-        planType: 'lifetime',
-        status: 'active',
-        lifetimePaymentId: paymentId,
-        activatedAt: new Date(),
-      }
-    } else {
-      user.billing = {
-        ...user.billing,
-        planType: 'hybrid',
-        status: 'setup_paid',
-        setupPaymentId: paymentId,
-      }
+    user.billing = {
+      ...user.billing,
+      planType: 'hybrid',
+      status: 'setup_paid',
+      setupPaymentId: paymentId,
     }
 
     await user.save()
@@ -209,26 +248,65 @@ export async function createHybridSubscription(req, res, next) {
 
     let customerId = user.billing?.razorpayCustomerId
     if (!customerId) {
-      const customer = await createCustomer({
-        name: user.name,
-        email: user.email,
-        notes: {
-          userId: String(user._id),
-        },
-      })
-      customerId = customer.id
+      customerId = getCachedCustomerIdByEmail(user.email)
+    }
+    if (!customerId) {
+      try {
+        const customer = await createCustomer({
+          name: user.name,
+          email: user.email,
+          // Reuse existing Razorpay customer for the same merchant/email instead of failing.
+          fail_existing: 0,
+          notes: {
+            userId: String(user._id),
+          },
+        })
+        customerId = customer.id
+        setCachedCustomerIdByEmail(user.email, customerId)
+      } catch (error) {
+        const message = String(error?.message || '').toLowerCase()
+        const duplicateCustomer = message.includes('customer already exists')
+        if (!duplicateCustomer) {
+          throw error
+        }
+
+        const existingCustomer = await resolveExistingCustomerByEmail(user.email)
+        if (!existingCustomer?.id) {
+          throw error
+        }
+
+        customerId = existingCustomer.id
+        setCachedCustomerIdByEmail(user.email, customerId)
+      }
     }
 
-    const subscription = await createSubscription({
+    const totalCount = Number.isFinite(HYBRID_TOTAL_COUNT) && HYBRID_TOTAL_COUNT > 0 ? HYBRID_TOTAL_COUNT : 60
+
+    const basePayload = {
       plan_id: hybridPlanId,
       customer_notify: 1,
-      total_count: 120,
-      customer_id: customerId,
+      total_count: totalCount,
       notes: {
         userId: String(user._id),
         plan: 'hybrid',
       },
-    })
+    }
+
+    let subscription
+    try {
+      subscription = await createSubscription({
+        ...basePayload,
+        customer_id: customerId,
+      })
+    } catch (error) {
+      // Some Razorpay accounts reject customer_id for subscription create.
+      // Retry with a minimal payload to keep hybrid activation reliable.
+      if (Number(error?.statusCode || error?.status) !== 400) {
+        throw error
+      }
+
+      subscription = await createSubscription(basePayload)
+    }
 
     user.billing = {
       ...user.billing,

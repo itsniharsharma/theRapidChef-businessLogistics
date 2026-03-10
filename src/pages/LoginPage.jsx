@@ -4,6 +4,25 @@ import { useAuth } from '../hooks/useAuth'
 import FormInput from '../components/FormInput'
 import Button from '../components/Button'
 
+function toTimestamp(value) {
+  const ts = value ? new Date(value).getTime() : NaN
+  return Number.isFinite(ts) ? ts : 0
+}
+
+function hasBillingAccess(billing) {
+  if (!billing) {
+    return false
+  }
+
+  if (billing.status === 'active') {
+    return true
+  }
+
+  const now = Date.now()
+  const graceWindowEnds = Math.max(toTimestamp(billing.graceEndsAt), toTimestamp(billing.currentPeriodEnd))
+  return ['grace_period', 'past_due'].includes(billing.status) && graceWindowEnds > now
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -19,7 +38,12 @@ export default function LoginPage() {
     setError('')
 
     try {
-      await login({ email, password })
+      const result = await login({ email, password })
+      if (!hasBillingAccess(result?.user?.billing)) {
+        navigate('/plans', { replace: true })
+        return
+      }
+
       navigate(location.state?.from?.pathname || '/dashboard', { replace: true })
     } catch (requestError) {
       setError(requestError?.response?.data?.message || 'Login failed. Please try again.')
@@ -49,6 +73,12 @@ export default function LoginPage() {
         <Button className="mt-5 w-full" type="submit" disabled={loading}>
           {loading ? 'Signing in...' : 'Login'}
         </Button>
+        <p className="mt-4 text-sm text-slate-600">
+          New here?{' '}
+          <Link to="/register" className="font-semibold text-[var(--primary)]">
+            Sign up
+          </Link>
+        </p>
       </form>
     </div>
   )

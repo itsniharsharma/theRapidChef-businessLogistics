@@ -158,8 +158,8 @@ export default function LandingPage() {
             <a href="#contact" className="hover:text-[var(--primary)]">
               Contact
             </a>
-            <Link to="/login" className="hover:text-[var(--primary)]">
-              Login
+            <Link to="/register" className="hover:text-[var(--primary)]">
+              Sign Up
             </Link>
           </nav>
         </div>
@@ -182,8 +182,8 @@ export default function LandingPage() {
               <a href="#contact" className="rounded-lg px-2 py-2 hover:bg-red-50 hover:text-[var(--primary)]" onClick={() => setMobileNavOpen(false)}>
                 Contact
               </a>
-              <Link to="/login" className="rounded-lg px-2 py-2 hover:bg-red-50 hover:text-[var(--primary)]" onClick={() => setMobileNavOpen(false)}>
-                Login
+              <Link to="/register" className="rounded-lg px-2 py-2 hover:bg-red-50 hover:text-[var(--primary)]" onClick={() => setMobileNavOpen(false)}>
+                Sign Up
               </Link>
             </div>
           </nav>
@@ -212,8 +212,8 @@ export default function LandingPage() {
                 <Link to="/plans">
                   <Button className="px-7 py-3">Start With Pricing</Button>
                 </Link>
-                <Link to="/login">
-                  <Button variant="secondary" className="px-7 py-3">Owner Login</Button>
+                <Link to="/register">
+                  <Button variant="secondary" className="px-7 py-3">Owner Sign Up</Button>
                 </Link>
                 <a href="#app-views">
                   <Button variant="secondary" className="px-7 py-3 bg-white/10 text-white border-white/30 hover:bg-white/20 hover:text-white">
@@ -379,8 +379,8 @@ export default function LandingPage() {
               <Link to="/plans">
                 <Button className="px-6 py-3">Explore Pricing</Button>
               </Link>
-              <Link to="/login">
-                <Button variant="secondary" className="px-6 py-3">Owner Login</Button>
+              <Link to="/register">
+                <Button variant="secondary" className="px-6 py-3">Owner Sign Up</Button>
               </Link>
             </div>
           </div>
