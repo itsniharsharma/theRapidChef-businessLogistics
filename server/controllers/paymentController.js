@@ -165,6 +165,13 @@ export async function createCheckout(req, res, next) {
       return res.status(400).json({ message: 'Only hybrid plan is supported' })
     }
 
+    const user = await getUserOrThrow(req.user._id)
+    if (user.billing?.planType === 'hybrid' && user.billing?.status === 'setup_paid') {
+      return res.status(409).json({
+        message: 'Setup payment is already completed. Continue with autopay authorization.',
+      })
+    }
+
     const amount = HYBRID_SETUP_AMOUNT_PAISE
     const order = await createOrder({
       amount,
@@ -243,6 +250,14 @@ export async function createHybridSubscription(req, res, next) {
     if (user.billing?.planType !== 'hybrid' || user.billing?.status !== 'setup_paid') {
       return res.status(400).json({
         message: 'Pay setup amount before starting auto-payment subscription',
+      })
+    }
+
+    if (user.billing?.razorpaySubscriptionId) {
+      return res.status(200).json({
+        keyId: getRazorpayKeyId(),
+        subscriptionId: user.billing.razorpaySubscriptionId,
+        customerId: user.billing?.razorpayCustomerId || '',
       })
     }
 

@@ -94,6 +94,8 @@ export default function PricingPage() {
     navigate('/login', { replace: true })
   }
 
+  const hasSetupPaid = user?.billing?.planType === 'hybrid' && user?.billing?.status === 'setup_paid'
+
   const activateHybrid = async () => {
     if (!isAuthenticated) {
       navigate('/register')
@@ -106,29 +108,32 @@ export default function PricingPage() {
     try {
       await loadRazorpayCheckoutScript()
 
-      const setupCheckout = await paymentService.createCheckout('hybrid')
-      const setupResponse = await openRazorpay({
-        key: setupCheckout.keyId,
-        amount: setupCheckout.amount,
-        currency: setupCheckout.currency,
-        name: "Chef's Bud",
-        description: 'Hybrid plan setup amount',
-        order_id: setupCheckout.orderId,
-        prefill,
-        theme: { color: '#e50914' },
-      })
+      // If setup has already been paid, resume directly from autopay authorization.
+      if (!hasSetupPaid) {
+        const setupCheckout = await paymentService.createCheckout('hybrid')
+        const setupResponse = await openRazorpay({
+          key: setupCheckout.keyId,
+          amount: setupCheckout.amount,
+          currency: setupCheckout.currency,
+          name: "Chef's Bud",
+          description: 'Business plan setup amount',
+          order_id: setupCheckout.orderId,
+          prefill,
+          theme: { color: '#e50914' },
+        })
 
-      await paymentService.verifyCheckout({
-        plan: 'hybrid',
-        ...setupResponse,
-      })
+        await paymentService.verifyCheckout({
+          plan: 'hybrid',
+          ...setupResponse,
+        })
+      }
 
       const subscriptionCheckout = await paymentService.createHybridSubscription()
       const subscriptionResponse = await openRazorpay({
         key: subscriptionCheckout.keyId,
         subscription_id: subscriptionCheckout.subscriptionId,
         name: "Chef's Bud",
-        description: 'Hybrid plan - Rs 250 monthly auto-payment',
+        description: 'Business plan - Rs 399 monthly auto-payment',
         prefill,
         retry: {
           enabled: true,
@@ -187,7 +192,11 @@ export default function PricingPage() {
             </ul>
 
             <Button className="mt-6 w-full" disabled={activePlan !== ''} onClick={activateHybrid}>
-              {activePlan === 'hybrid' ? 'Processing...' : 'Pay Rs 10,000 and Enable Rs 399/month Autopay'}
+              {activePlan === 'hybrid'
+                ? 'Processing...'
+                : hasSetupPaid
+                  ? 'Continue Rs 399/month Autopay Setup'
+                  : 'Pay Rs 10,000 and Enable Rs 399/month Autopay'}
             </Button>
           </section>
         </div>
