@@ -7,7 +7,7 @@ const links = [
   { label: 'Orders', to: '/dashboard/orders' },
   { label: 'Menu', to: '/dashboard/menu' },
   { label: 'Tables', to: '/dashboard/tables' },
-  { label: 'Offers', to: '/dashboard/offers' },
+  { label: 'Offers (Dev)', to: '/dashboard/offers' },
   { label: 'Analytics', to: '/dashboard/analytics' },
   { label: 'Billing', to: '/dashboard/billing' },
   { label: 'Settings', to: '/dashboard/settings' },

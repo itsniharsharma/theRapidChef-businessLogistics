@@ -42,6 +42,12 @@ const orderSchema = new mongoose.Schema(
       enum: ['Pending', 'Preparing', 'Ready', 'Served', 'Completed'],
       default: 'Pending',
     },
+    completedAt: { type: Date, default: null },
+    hiddenFromActive: { type: Boolean, default: false, index: true },
+    deletedByOwnerAt: { type: Date, default: null, index: true },
+    isArchived: { type: Boolean, default: false, index: true },
+    archivedAt: { type: Date, default: null },
+    archiveKey: { type: String, default: '' },
   },
   { timestamps: true },
 )
@@ -51,5 +57,7 @@ orderSchema.index({ restaurantId: 1, orderStatus: 1, createdAt: -1 })
 orderSchema.index({ restaurantId: 1, tableNumber: 1, createdAt: -1 })
 orderSchema.index({ restaurantId: 1, paymentStatus: 1, createdAt: -1 })
 orderSchema.index({ restaurantId: 1, paymentStatus: 1, orderStatus: 1, createdAt: -1 })
+orderSchema.index({ restaurantId: 1, hiddenFromActive: 1, createdAt: -1 })
+orderSchema.index({ hiddenFromActive: 1, deletedByOwnerAt: 1, isArchived: 1 })
 
 export default mongoose.model('Order', orderSchema)

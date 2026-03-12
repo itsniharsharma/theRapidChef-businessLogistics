@@ -6,9 +6,17 @@ import { useAuth } from '../hooks/useAuth'
 
 const statusFilters = ['All', 'Pending', 'Preparing', 'Ready', 'Served', 'Completed']
 
+function buildOrderBoardParams(statusFilter, scope) {
+  return {
+    status: statusFilter,
+    scope: scope === 'Today' ? 'today' : 'all',
+  }
+}
+
 export default function OrdersPage() {
   const { restaurant } = useAuth()
-  const [orders, setOrders] = useState([])
+  const [activeOrders, setActiveOrders] = useState([])
+  const [recentOrders, setRecentOrders] = useState([])
   const [statusFilter, setStatusFilter] = useState('All')
   const [scope, setScope] = useState('All')
   const [error, setError] = useState('')
@@ -17,14 +25,13 @@ export default function OrdersPage() {
     if (!restaurant?._id) return undefined
 
     const loadOrders = () => {
-      const params = {
-        status: statusFilter,
-        scope: scope === 'Today' ? 'today' : 'all',
-      }
-
       orderService
-        .list(restaurant._id, params)
-        .then(setOrders)
+        .listBoard(restaurant._id, buildOrderBoardParams(statusFilter, scope))
+        .then(({ activeOrders: active = [], recentOrders: recent = [] }) => {
+          setActiveOrders(active)
+          setRecentOrders(recent)
+          setError('')
+        })
         .catch((requestError) => setError(requestError?.response?.data?.message || 'Failed to load orders'))
     }
 
@@ -37,29 +44,29 @@ export default function OrdersPage() {
 
   const onStatusChange = (id, status) => {
     if (!restaurant?._id) return
-    const params = {
-      status: statusFilter,
-      scope: scope === 'Today' ? 'today' : 'all',
-    }
 
     orderService
       .updateStatus(id, status)
-      .then(() => orderService.list(restaurant._id, params))
-      .then(setOrders)
+      .then(() => orderService.listBoard(restaurant._id, buildOrderBoardParams(statusFilter, scope)))
+      .then(({ activeOrders: active = [], recentOrders: recent = [] }) => {
+        setActiveOrders(active)
+        setRecentOrders(recent)
+        setError('')
+      })
       .catch((requestError) => setError(requestError?.response?.data?.message || 'Failed to update status'))
   }
 
   const onDeleteOrder = (id) => {
     if (!restaurant?._id) return
-    const params = {
-      status: statusFilter,
-      scope: scope === 'Today' ? 'today' : 'all',
-    }
 
     orderService
       .delete(id)
-      .then(() => orderService.list(restaurant._id, params))
-      .then(setOrders)
+      .then(() => orderService.listBoard(restaurant._id, buildOrderBoardParams(statusFilter, scope)))
+      .then(({ activeOrders: active = [], recentOrders: recent = [] }) => {
+        setActiveOrders(active)
+        setRecentOrders(recent)
+        setError('')
+      })
       .catch((requestError) => setError(requestError?.response?.data?.message || 'Failed to delete order'))
   }
 
@@ -84,15 +91,39 @@ export default function OrdersPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4">
-        {orders.map((order) => (
-          <OrderCard
-            key={order._id || order.id}
-            order={order}
-            onStatusChange={onStatusChange}
-            onDelete={onDeleteOrder}
-          />
-        ))}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <section className="space-y-3 rounded-2xl border border-red-100 bg-white p-4 shadow-sm">
+          <h2 className="text-base font-semibold text-slate-800">Active Orders</h2>
+          <div className="grid grid-cols-1 gap-4">
+            {activeOrders.map((order) => (
+              <OrderCard
+                key={order._id || order.id}
+                order={order}
+                onStatusChange={onStatusChange}
+                onDelete={onDeleteOrder}
+                deleteLabel="Move to Recent"
+              />
+            ))}
+            {!activeOrders.length && <p className="text-sm text-slate-500">No active orders in this view.</p>}
+          </div>
+        </section>
+
+        <section className="space-y-3 rounded-2xl border border-red-100 bg-white p-4 shadow-sm">
+          <h2 className="text-base font-semibold text-slate-800">Recent Orders</h2>
+          <div className="grid grid-cols-1 gap-4">
+            {recentOrders.map((order) => (
+              <OrderCard
+                key={order._id || order.id}
+                order={order}
+                onStatusChange={onStatusChange}
+                onDelete={onDeleteOrder}
+                deleteLabel="Hide"
+                showStatusActions={false}
+              />
+            ))}
+            {!recentOrders.length && <p className="text-sm text-slate-500">No recent orders in this view.</p>}
+          </div>
+        </section>
       </div>
     </div>
   )

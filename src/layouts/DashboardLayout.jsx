@@ -8,7 +8,7 @@ const titles = {
   '/dashboard/orders': 'Orders',
   '/dashboard/menu': 'Menu Management',
   '/dashboard/tables': 'Table Management',
-  '/dashboard/offers': 'Offers',
+  '/dashboard/offers': 'Offers (Under Development)',
   '/dashboard/analytics': 'Analytics',
   '/dashboard/billing': 'Billing',
   '/dashboard/settings': 'Settings',

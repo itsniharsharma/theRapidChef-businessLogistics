@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import app from './app.js'
 import { connectDB } from './config/db.js'
+import { startOrderArchiveScheduler } from './services/orderArchiveService.js'
 
 const PORT = process.env.PORT || 5000
 
@@ -9,6 +10,8 @@ async function start() {
   const server = app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`)
   })
+
+  startOrderArchiveScheduler()
 
   server.keepAliveTimeout = Number(process.env.KEEP_ALIVE_TIMEOUT_MS || 65000)
   server.headersTimeout = Number(process.env.HEADERS_TIMEOUT_MS || 66000)

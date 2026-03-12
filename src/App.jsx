@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
 import { importers, warmCriticalRoutes } from './utils/routePreload'
 import { buildCustomerMenuUrl } from './utils/customerUrl'
@@ -25,26 +25,6 @@ const CustomerCheckoutPage = lazy(importers.customerCheckout)
 const CustomerStatusPage = lazy(importers.customerStatus)
 const CustomerOrderTrackingPage = lazy(importers.customerTracking)
 
-function BackToLandingLink() {
-  const location = useLocation()
-  const isCustomerRoute = location.pathname.startsWith('/r/')
-  const marketingRoutes = ['/overview', '/platform', '/plans', '/pricing', '/trust', '/contact', '/register', '/login']
-  const isMarketingRoute = marketingRoutes.includes(location.pathname)
-
-  if (location.pathname === '/' || isCustomerRoute || isMarketingRoute) {
-    return null
-  }
-
-  return (
-    <Link
-      to="/"
-      className="fixed left-4 top-4 z-50 rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm backdrop-blur hover:text-[var(--primary)]"
-    >
-      ← Landing
-    </Link>
-  )
-}
-
 function CustomerRouteFallback() {
   const { restaurantSlug, tableNumber } = useParams()
   const target = buildCustomerMenuUrl({ slug: restaurantSlug, tableNumber })
@@ -65,7 +45,6 @@ function App() {
 
   return (
     <BrowserRouter>
-      <BackToLandingLink />
       <Suspense fallback={<div className="p-6 text-sm text-slate-500">Loading...</div>}>
         <Routes>
           <Route path="/" element={<Navigate to="/overview" replace />} />

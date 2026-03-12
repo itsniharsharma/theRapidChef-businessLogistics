@@ -4,11 +4,11 @@ import { formatCurrencyINR } from '../utils/currency'
 
 const statuses = ['Pending', 'Preparing', 'Ready', 'Served', 'Completed']
 
-function OrderCard({ order, onStatusChange, onDelete }) {
+function OrderCard({ order, onStatusChange, onDelete, deleteLabel = 'Delete', showStatusActions = true }) {
   const orderId = order._id || order.id
   const label = order.orderStatus || order.status
   const total = order.totalAmount ?? order.total ?? 0
-  const canDelete = label === 'Served' || label === 'Completed'
+  const canDelete = (label === 'Served' || label === 'Completed') && !order.hiddenFromActive
   const itemText = Array.isArray(order.items)
     ? order.items
         .map((item) => {
@@ -34,23 +34,25 @@ function OrderCard({ order, onStatusChange, onDelete }) {
         <span>Payment: {order.paymentStatus}</span>
         <span>Status: {label}</span>
       </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {statuses.map((status) => (
-          <Button
-            key={status}
-            variant={label === status ? 'primary' : 'secondary'}
-            className="px-3 py-1 text-xs"
-            onClick={() => onStatusChange(orderId, status)}
-          >
-            {status}
-          </Button>
-        ))}
-        {canDelete && (
-          <Button variant="secondary" className="px-3 py-1 text-xs" onClick={() => onDelete(orderId)}>
-            Delete
-          </Button>
-        )}
-      </div>
+      {showStatusActions ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {statuses.map((status) => (
+            <Button
+              key={status}
+              variant={label === status ? 'primary' : 'secondary'}
+              className="px-3 py-1 text-xs"
+              onClick={() => onStatusChange(orderId, status)}
+            >
+              {status}
+            </Button>
+          ))}
+          {canDelete && (
+            <Button variant="secondary" className="px-3 py-1 text-xs" onClick={() => onDelete(orderId)}>
+              {deleteLabel}
+            </Button>
+          )}
+        </div>
+      ) : null}
     </div>
   )
 }

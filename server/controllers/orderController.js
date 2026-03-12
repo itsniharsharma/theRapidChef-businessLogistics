@@ -1,12 +1,55 @@
 import MenuItem from '../models/MenuItem.js'
 import Order from '../models/Order.js'
 import Restaurant from '../models/Restaurant.js'
-import Offer from '../models/Offer.js'
 import { invalidateCacheByTags } from '../services/responseCache.js'
-import { applyOffersToOrder } from '../services/offerEngine.js'
+
+const orderListProjection =
+  '_id tableNumber items subtotalAmount discountTotal appliedOffers couponCode totalAmount paymentStatus orderStatus createdAt completedAt hiddenFromActive deletedByOwnerAt'
 
 async function getOwnerRestaurant(ownerId) {
   return Restaurant.findOne({ ownerId }).select('_id').lean()
+}
+
+function buildOrderQuery({ restaurantId, view, status, scope }) {
+  const query = { restaurantId, isArchived: false }
+
+  if (view === 'recent') {
+    query.hiddenFromActive = true
+    query.orderStatus = 'Completed'
+  } else {
+    query.hiddenFromActive = { $ne: true }
+    if (status && status !== 'All') {
+      query.orderStatus = status
+    }
+  }
+
+  if (scope === 'today') {
+    const start = new Date()
+    start.setHours(0, 0, 0, 0)
+    query.createdAt = { $gte: start }
+  }
+
+  return query
+}
+
+function buildPagination({ page, limit }) {
+  const safePage = Math.max(1, Number(page || 1))
+  const safeLimit = Math.min(100, Math.max(1, Number(limit || 50)))
+
+  return {
+    page: safePage,
+    limit: safeLimit,
+    skip: (safePage - 1) * safeLimit,
+  }
+}
+
+async function listOrdersByQuery(query, pagination) {
+  return Order.find(query)
+    .sort({ createdAt: -1 })
+    .skip(pagination.skip)
+    .limit(pagination.limit)
+    .select(orderListProjection)
+    .lean()
 }
 
 async function buildOrderItems(restaurantId, items) {
@@ -63,27 +106,44 @@ export async function getOrders(req, res, next) {
       return res.status(403).json({ message: 'Forbidden' })
     }
 
-    const query = { restaurantId: req.params.restaurantId }
-    if (req.query.status && req.query.status !== 'All') {
-      query.orderStatus = req.query.status
+    const pagination = buildPagination(req.query)
+    const scope = req.query.scope === 'today' ? 'today' : 'all'
+
+    if (req.query.includeRecent === 'true') {
+      const [activeOrders, recentOrders] = await Promise.all([
+        listOrdersByQuery(
+          buildOrderQuery({
+            restaurantId: req.params.restaurantId,
+            view: 'active',
+            status: req.query.status,
+            scope,
+          }),
+          pagination,
+        ),
+        listOrdersByQuery(
+          buildOrderQuery({
+            restaurantId: req.params.restaurantId,
+            view: 'recent',
+            scope,
+          }),
+          pagination,
+        ),
+      ])
+
+      return res.json({ activeOrders, recentOrders })
     }
 
-    if (req.query.scope === 'today') {
-      const start = new Date()
-      start.setHours(0, 0, 0, 0)
-      query.createdAt = { $gte: start }
-    }
+    const view = req.query.view === 'recent' ? 'recent' : 'active'
+    const orders = await listOrdersByQuery(
+      buildOrderQuery({
+        restaurantId: req.params.restaurantId,
+        view,
+        status: req.query.status,
+        scope,
+      }),
+      pagination,
+    )
 
-    const page = Math.max(1, Number(req.query.page || 1))
-    const limit = Math.min(100, Math.max(1, Number(req.query.limit || 50)))
-    const skip = (page - 1) * limit
-
-    const orders = await Order.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .select('_id tableNumber items subtotalAmount discountTotal appliedOffers couponCode totalAmount paymentStatus orderStatus createdAt')
-      .lean()
     return res.json(orders)
   } catch (error) {
     next(error)
@@ -103,11 +163,15 @@ export async function updateOrderStatus(req, res, next) {
       return res.status(400).json({ message: 'Invalid order status' })
     }
 
-    const order = await Order.findOneAndUpdate(
-      { _id: req.params.orderId, restaurantId: restaurant._id },
-      { $set: { orderStatus } },
-      { new: true, runValidators: true },
-    )
+    const isCompleted = orderStatus === 'Completed'
+    const update = {
+      orderStatus,
+      completedAt: isCompleted ? new Date() : null,
+      hiddenFromActive: isCompleted,
+      deletedByOwnerAt: isCompleted ? new Date() : null,
+    }
+
+    const order = await Order.findOneAndUpdate({ _id: req.params.orderId, restaurantId: restaurant._id }, { $set: update }, { new: true, runValidators: true })
     if (!order) {
       return res.status(404).json({ message: 'Order not found' })
     }
@@ -138,9 +202,18 @@ export async function deleteOrder(req, res, next) {
       return res.status(400).json({ message: 'Order can be deleted only after Served or Completed' })
     }
 
-    await Order.deleteOne({ _id: req.params.orderId, restaurantId: restaurant._id })
+    await Order.updateOne(
+      { _id: req.params.orderId, restaurantId: restaurant._id },
+      {
+        $set: {
+          hiddenFromActive: true,
+          deletedByOwnerAt: new Date(),
+        },
+      },
+    )
+
     invalidateCacheByTags([`analytics:${String(restaurant._id)}`])
-    return res.json({ success: true })
+    return res.json({ success: true, movedToRecent: true })
   } catch (error) {
     next(error)
   }
@@ -148,20 +221,21 @@ export async function deleteOrder(req, res, next) {
 
 export async function createOrder(req, res, next) {
   try {
-    const { restaurantSlug, tableNumber, items, paymentStatus = 'Unpaid', couponCode = '' } = req.body
+    const { restaurantSlug, tableNumber, items, paymentStatus = 'Unpaid' } = req.body
 
     const restaurant = await Restaurant.findOne({ slug: restaurantSlug }).lean()
     if (!restaurant) {
       return res.status(404).json({ message: 'Restaurant not found' })
     }
 
-    const { orderItems } = await buildOrderItems(restaurant._id, items)
-    const activeOffers = await Offer.find({ restaurantId: restaurant._id, active: true }).lean()
-    const pricing = applyOffersToOrder({
-      orderItems,
-      offers: activeOffers,
-      couponCode,
-    })
+    const { orderItems, subtotalAmount } = await buildOrderItems(restaurant._id, items)
+    const pricing = {
+      subtotalAmount,
+      discountTotal: 0,
+      appliedOffers: [],
+      couponCodeApplied: '',
+      totalAmount: subtotalAmount,
+    }
 
     const order = await Order.create({
       restaurantId: restaurant._id,

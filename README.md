@@ -35,6 +35,16 @@ RAZORPAY_HYBRID_MONTHLY_PLAN_ID=<your-razorpay-plan-id-for-rs-250>
 KEEP_ALIVE_TIMEOUT_MS=65000
 HEADERS_TIMEOUT_MS=66000
 
+AWS_REGION=<your-aws-region>
+S3_BUCKET_NAME=<your-s3-bucket>
+AWS_ACCESS_KEY_ID=<your-aws-access-key-id>
+AWS_SECRET_ACCESS_KEY=<your-aws-secret-access-key>
+ORDER_ARCHIVE_ENABLED=true
+ORDER_ARCHIVE_INTERVAL_MINUTES=60
+ORDER_ARCHIVE_DELAY_HOURS=6
+ORDER_ARCHIVE_BATCH_SIZE=500
+ORDER_ARCHIVE_PURGE_AFTER_UPLOAD=true
+
 VITE_API_BASE_URL=http://localhost:5000/api
 VITE_FRONTEND_BASE_URL=http://localhost:5173
 ```
@@ -97,6 +107,14 @@ Customer flow:
 4. Checkout and place order
 
 Orders persist to MongoDB and appear in owner dashboard polling.
+
+## Order Lifecycle + S3 Archival
+
+- Owner sees active orders in dashboard from MongoDB.
+- When an order reaches `Served` or `Completed`, owner can move it to `Recent Orders`.
+- A background scheduler archives `Recent Orders` older than `ORDER_ARCHIVE_DELAY_HOURS` to S3.
+- Archive objects are tenant-bounded by restaurant path, compressed as `json.gz`.
+- After successful upload, archived orders are purged from MongoDB when `ORDER_ARCHIVE_PURGE_AFTER_UPLOAD=true`.
 
 ## AI Menu Import (Owner → Menu)
 
